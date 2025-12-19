@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Word Chain Puzzle</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#fff; }
+    canvas { display:block; width:100vw; height:100vh; touch-action:none; } /* touch-action none enables smooth drag */
+    .overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.35);
+      display:none; align-items:center; justify-content:center;
+      padding:18px;
+    }
+    .modal {
+      width:min(620px, 92vw);
+      background:#fff; border:2px solid #8080a0; border-radius:14px;
+      padding:16px 18px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .modal h2 { margin:0 0 10px 0; font-size:20px; }
+    .modal ul { margin:0; padding-left:20px; }
+    .modal li { margin:8px 0; font-size:15px; line-height:1.25; }
+    .modal .row { display:flex; justify-content:flex-end; margin-top:14px; }
+    .modal button {
+      font-size:15px; padding:8px 12px; border-radius:10px;
+      border:2px solid #666; background:#eee;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="howtoOverlay" class="overlay">
+    <div class="modal">
+      <h2>How To Play</h2>
+      <ul>
+        <li>Drag a letter from the legend (right box) onto a node.</li>
+        <li>If correct, all occurrences of that letter are revealed.</li>
+        <li>If wrong, it returns to the legend and your error count increases (unless that node’s letter is already revealed somewhere).</li>
+        <li><b>Hover</b> a node to highlight all edges in/out and see how many times it’s used.</li>
+        <li>Hint reveals a random hidden letter (counts as a hint).</li>
+        <li>Timer starts each puzzle.</li>
+      </ul>
+      <div class="row">
+        <button id="closeHowto">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
