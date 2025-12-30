@@ -849,8 +849,8 @@
       return;
     }
     if (action === "quit"){
-      // On web, "quit" can just stop input and show message
-      alert("Thanks for playing! (On web, Quit just refreshes the page.)");
+     // Go back to the main PJ PUZZLES page
+      window.location.href = "../index.html";
       return;
     }
     if (action === "next"){
