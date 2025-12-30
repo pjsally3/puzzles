@@ -3,128 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>PJ PUZZLES</title>
+  <title>Word Chain Puzzle</title>
   <style>
-    :root {
-      --bg: #ffffff;
-      --text: #111111;
-      --banner-bg: #0b3a6e;
-      --banner-text: #ffffff;
-      --btn-bg: #f2f2f2;
-      --btn-bg-hover: #e6e6e6;
-      --btn-border: #222222;
+    html, body { margin:0; padding:0; height:100%; background:#fff; }
+    canvas { display:block; width:100vw; height:100vh; touch-action:none; } /* touch-action none enables smooth drag */
+    .overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.35);
+      display:none; align-items:center; justify-content:center;
+      padding:18px;
     }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
+    .modal {
+      width:min(620px, 92vw);
+      background:#fff; border:2px solid #8080a0; border-radius:14px;
+      padding:16px 18px;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
-
-    header {
-      background: var(--banner-bg);
-      color: var(--banner-text);
-      padding: 22px 16px;
-      text-align: center;
-      font-weight: 800;
-      letter-spacing: 2px;
-      font-size: clamp(26px, 4vw, 44px);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-    }
-
-    main {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 28px 18px 40px;
-      display: grid;
-      gap: 18px;
-    }
-
-    .subtitle {
-      text-align: center;
-      font-size: 16px;
-      opacity: 0.85;
-      margin: 6px 0 10px;
-    }
-
-    .btn {
-      appearance: none;
-      border: 2px solid var(--btn-border);
-      background: var(--btn-bg);
-      color: var(--text);
-      border-radius: 14px;
-      padding: 18px 18px;
-      font-size: 20px;
-      font-weight: 700;
-      cursor: pointer;
-      width: 100%;
-      transition: transform 0.06s ease, background 0.15s ease;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .btn:hover { background: var(--btn-bg-hover); }
-    .btn:active { transform: translateY(1px); }
-
-    .card {
-      border: 1px solid rgba(0,0,0,0.10);
-      border-radius: 16px;
-      padding: 18px;
-      background: #fff;
-      box-shadow: 0 1px 10px rgba(0,0,0,0.06);
-    }
-
-    footer {
-      text-align: center;
-      font-size: 12px;
-      opacity: 0.65;
-      padding: 18px 0 26px;
+    .modal h2 { margin:0 0 10px 0; font-size:20px; }
+    .modal ul { margin:0; padding-left:20px; }
+    .modal li { margin:8px 0; font-size:15px; line-height:1.25; }
+    .modal .row { display:flex; justify-content:flex-end; margin-top:14px; }
+    .modal button {
+      font-size:15px; padding:8px 12px; border-radius:10px;
+      border:2px solid #666; background:#eee;
     }
   </style>
 </head>
 <body>
-  <header>PJ PUZZLES</header>
+  <canvas id="c"></canvas>
 
-  <main>
-    <div class="subtitle">Choose a game:</div>
-
-    <div class="card">
-      <button class="btn" id="wordChainBtn">Word Chain</button>
+  <div id="howtoOverlay" class="overlay">
+    <div class="modal">
+      <h2>How To Play</h2>
+      <ul>
+        <li>Drag a letter from the legend (right box) onto a node.</li>
+        <li>If correct, all occurrences of that letter are revealed.</li>
+        <li>If wrong, it returns to the legend and your error count increases (unless that node’s letter is already revealed somewhere).</li>
+        <li><b>Hover</b> a node to highlight all edges in/out and see how many times it’s used.</li>
+        <li>Hint reveals a random hidden letter (counts as a hint).</li>
+        <li>Timer starts each puzzle.</li>
+      </ul>
+      <div class="row">
+        <button id="closeHowto">Close</button>
+      </div>
     </div>
+  </div>
 
-    <div class="card">
-      <button class="btn" id="game2Btn">Game 2</button>
-    </div>
-
-    <div class="card">
-      <button class="btn" id="game3Btn">Game 3</button>
-    </div>
-  </main>
-
-  <footer>© PJ PUZZLES</footer>
-
-  <script>
-    // Update this path if your folder name differs.
-    // Example structure:
-    // /puzzles/index.html  (this page)
-    // /puzzles/games/word-chain/index.html  (word chain game)
-    const WORD_CHAIN_URL = "games/word-chain/";
-
-    document.getElementById("wordChainBtn").addEventListener("click", () => {
-      window.location.href = WORD_CHAIN_URL;
-    });
-
-    document.getElementById("game2Btn").addEventListener("click", () => {
-      alert("Game 2 coming soon!");
-    });
-
-    document.getElementById("game3Btn").addEventListener("click", () => {
-      alert("Game 3 coming soon!");
-    });
-  </script>
+  <script src="game.js"></script>
 </body>
 </html>
-
