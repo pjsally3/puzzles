@@ -958,8 +958,8 @@
         .filter((w) => w && /^[a-z]+$/.test(w) && ALLOWED_WORD_LENS.has(w.length));
       words = [...new Set(list)];
     } catch (err) {
-   //   words = ["able", "echo", "oval", "lava", "ally", "yarn", "nope", "eager", "ramp", "palm", "mood", "dome", "else", "eels", "sour", "ruse"];
-      words = ["art", "tin", "nut"];
+      words = ["able", "echo", "oval", "lava", "ally", "yarn", "nope", "eager", "ramp", "palm", "mood", "dome", "else", "eels", "sour", "ruse"];
+     // words = ["art", "tin", "nut"];
       console.warn("Could not load words.txt. Using fallback list.", err);
     }
 
