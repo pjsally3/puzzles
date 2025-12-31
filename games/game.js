@@ -1,6 +1,6 @@
 (() => {
   // ---------- Config ----------
-  const WORD_FILE = "words.txt";
+  const WORD_FILE = "words5.txt";
   const DEFAULT_CHAIN_LEN = 3; // 2..5 supported
   const ALLOWED_WORD_LENS = new Set([3, 4, 5]);
 
