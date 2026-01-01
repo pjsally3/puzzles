@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>PJ Puzzles • Word Chain</title>
+  <meta name="description" content="PJ Puzzles — Word Chain" />
+
+  <style>
+    :root{
+      --bg0:#0b1020;
+      --bg1:#0f1a33;
+      --ink:#eaf0ff;
+      --muted:#b8c3e3;
+
+      --panel: rgba(255,255,255,.06);
+      --panelBorder: rgba(255,255,255,.10);
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+      --shadow2: 0 10px 24px rgba(0,0,0,.25);
+
+      --radius: 18px;
+      --radius2: 14px;
+
+      --focus: 0 0 0 4px rgba(120,170,255,.25);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 700px at 15% 10%, rgba(102,140,255,.18), transparent 60%),
+        radial-gradient(900px 700px at 85% 25%, rgba(255,190,120,.12), transparent 60%),
+        radial-gradient(900px 700px at 55% 90%, rgba(145,255,210,.10), transparent 55%),
+        linear-gradient(160deg, var(--bg0), var(--bg1));
+      overflow: hidden;
+    }
+
+    .page{
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+    }
+
+    /* Top bar */
+    .topbar{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 10px 4px;
+    }
+    .brand{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .brand:focus-visible{ outline:none; box-shadow: var(--focus); border-radius: 12px; }
+    .logo{
+      width: 34px; height: 34px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(120,170,255,.9), rgba(255,190,120,.75));
+      box-shadow: var(--shadow2);
+      position: relative;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .logo:before{
+      content:"";
+      position:absolute; inset:-30%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), transparent 40%);
+      transform: rotate(15deg);
+    }
+    .brand .name{
+      font-weight: 800;
+      letter-spacing: .6px;
+      line-height: 1.1;
+    }
+    .brand .sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+      letter-spacing: .2px;
+    }
+
+    .pill{
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,.18);
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      white-space: nowrap;
+    }
+
+    /* Stage */
+    .stage{
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--panelBorder);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+    canvas{
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none; /* keep for smooth drag */
+    }
+
+    /* How-to modal */
+    .overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modal{
+      width: min(720px, 94vw);
+      background: rgba(15,26,51,.92);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .modal h2{
+      margin: 0 0 10px 0;
+      font-size: 20px;
+      letter-spacing: .4px;
+      color: var(--ink);
+    }
+    .modal ul{ margin: 0; padding-left: 20px; }
+    .modal li{
+      margin: 8px 0;
+      font-size: 14px;
+      line-height: 1.35;
+      color: rgba(234,240,255,.88);
+    }
+    .modal .row{
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 14px;
+    }
+    .modal button{
+      font-size: 14px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.10);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .modal button:hover{ background: rgba(255,255,255,.16); }
+    .modal button:focus-visible{ outline:none; box-shadow: var(--focus); }
+
+    /* Small helper text (optional) */
+    .hintline{
+      padding: 0 10px 8px;
+      color: rgba(234,240,255,.70);
+      font-size: 12px;
+      text-align: center;
+      letter-spacing: .2px;
+    }
+
+    @media (max-width: 520px){
+      .pill{ display:none; }
+      .page{ padding: 12px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header class="topbar">
+      <!-- back to landing page -->
+      <a class="brand" href="../index.html" aria-label="Back to PJ Puzzles">
+        <span class="logo" aria-hidden="true"></span>
+        <span>
+          <div class="name">PJ Puzzles</div>
+          <div class="sub">Word Chain</div>
+        </span>
+      </a>
+
+      <div class="pill">Drag letters • Hover nodes • Cozy mode</div>
+    </header>
+
+    <div class="hintline">Tip: On iPad, Share → “Add to Home Screen” for an app-like experience.</div>
+
+    <div class="stage">
+      <canvas id="c"></canvas>
+    </div>
+  </div>
+
+  <div id="howtoOverlay" class="overlay">
+    <div class="modal">
+      <h2>How To Play</h2>
+      <ul>
+        <li>Drag a letter from the legend (right box) onto a node.</li>
+        <li>If correct, all occurrences of that letter are revealed.</li>
+        <li>If wrong, it returns to the legend and your error count increases (unless that node’s letter is already revealed somewhere).</li>
+        <li><b>Hover</b> a node to highlight all edges in/out and see how many times it’s used.</li>
+        <li>Hint reveals a random hidden letter (counts as a hint).</li>
+        <li>Timer starts each puzzle.</li>
+      </ul>
+      <div class="row">
+        <button id="closeHowto">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
