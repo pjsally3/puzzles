@@ -685,11 +685,11 @@ function drawCanvasSurface() {
     
 
    const W = canvas.clientWidth,
-     H = canvas.clientHeight;
-
-    ctx.clearRect(0, 0, W, H);
-   ctx.fillStyle = COLORS.white;
-    ctx.fillRect(0, 0, W, H);
+     const H = canvas.clientHeight;
+drawCanvasSurface();
+ //   ctx.clearRect(0, 0, W, H);
+ // ctx.fillStyle = COLORS.white;
+ //   ctx.fillRect(0, 0, W, H);
 
     layoutButtons();
 
