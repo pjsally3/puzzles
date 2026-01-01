@@ -946,7 +946,7 @@ drawCanvasSurface();
       newPuzzle();
       return;
     }
-    if (action === "reveal") {
+    if (action === "I GIVE UP!") {
       showWords = true;
       return;
     }
