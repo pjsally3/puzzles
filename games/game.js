@@ -508,8 +508,8 @@
   function drawChainHeaderAndSwatches(chainArr) {
     const wordsToDraw = showWords ? chainArr : maskedWords(chainArr, revealed);
 
-    setFont(28, true);
-    const arrow = " → ";
+    setFont(34, true);
+    const arrow = "  →  ";
     const widths = wordsToDraw.map((w) => measure(w));
     const arrowW = measure(arrow);
 
@@ -545,11 +545,24 @@
     const swW = 26,
       swH = 10;
     const swY = baselineY + 14;
-    layouts.forEach((L) => {
+    const paddingX = 26;
+const paddingY = 18;
+const cardX = x - paddingX;
+const cardY = baselineY - 36;
+const cardW = totalW + paddingX * 2;
+const cardH = 56;
+layouts.forEach((L) => {
       const rW = widths[L.wi];
       const c = WORD_EDGE_COLORS[L.wi % WORD_EDGE_COLORS.length];
       const swX = L.x + rW / 2 - swW / 2;
-      drawRoundedRect(swX, swY, swW, swH, 3, c, "#000", 1);
+drawRoundedRect(
+  cardX, cardY, cardW, cardH,
+  18,
+  "rgba(255,255,255,0.08)",       // fill
+  "rgba(255,255,255,0.16)",       // border
+  2
+);
+//      drawRoundedRect(swX, swY, swW, swH, 3, c, "#000", 1);
     });
 
     return { headerBottom: swY + swH, layouts };
