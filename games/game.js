@@ -657,9 +657,9 @@
     if (rgbString.startsWith("rgba")) return rgbString;
     return rgbString.replace("rgb(", "rgba(").replace(")", `,${a})`);
   }
-function drawCanvasSurface() {
-  const W = canvas.clientWidth;
-  const H = canvas.clientHeight;
+function drawCanvasSurface(W, H) {
+  // Clear the frame ONCE per draw
+  ctx.clearRect(0, 0, W, H);
 
   // Soft glassy surface
   ctx.fillStyle = "rgba(255,255,255,0.035)";
@@ -680,19 +680,16 @@ function drawCanvasSurface() {
   // ---------- Main draw ----------
   function draw() {
   
-   drawCanvasSurface();
-    resize();
+   resize();
+
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
+
+  // Background FIRST (only once)
+  drawCanvasSurface(W, H);
+
+  layoutButtons();
     
-
-   const W = canvas.clientWidth,
-     const H = canvas.clientHeight;
-drawCanvasSurface();
- //   ctx.clearRect(0, 0, W, H);
- // ctx.fillStyle = COLORS.white;
- //   ctx.fillRect(0, 0, W, H);
-
-    layoutButtons();
-
     if (!chain) {
       requestAnimationFrame(draw);
       return;
