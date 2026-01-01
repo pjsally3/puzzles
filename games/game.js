@@ -680,15 +680,16 @@ function drawCanvasSurface() {
   // ---------- Main draw ----------
   function draw() {
   
+   drawCanvasSurface();
     resize();
-    drawCanvasSurface();
+    
 
-//   const W = canvas.clientWidth,
-//     H = canvas.clientHeight;
-//
- //   ctx.clearRect(0, 0, W, H);
-  //  ctx.fillStyle = COLORS.white;
-    //ctx.fillRect(0, 0, W, H);
+   const W = canvas.clientWidth,
+     H = canvas.clientHeight;
+
+    ctx.clearRect(0, 0, W, H);
+   ctx.fillStyle = COLORS.white;
+    ctx.fillRect(0, 0, W, H);
 
     layoutButtons();
 
