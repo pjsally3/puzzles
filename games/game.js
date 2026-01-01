@@ -657,16 +657,38 @@
     if (rgbString.startsWith("rgba")) return rgbString;
     return rgbString.replace("rgb(", "rgba(").replace(")", `,${a})`);
   }
+function drawCanvasSurface() {
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
+
+  // Soft glassy surface
+  ctx.fillStyle = "rgba(255,255,255,0.035)";
+  ctx.fillRect(0, 0, W, H);
+
+  // Inner vignette (subtle depth)
+  const g = ctx.createRadialGradient(
+    W / 2, H / 2, Math.min(W, H) * 0.2,
+    W / 2, H / 2, Math.max(W, H) * 0.9
+  );
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(1, "rgba(0,0,0,0.25)");
+
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
 
   // ---------- Main draw ----------
   function draw() {
+  
     resize();
-    const W = canvas.clientWidth,
-      H = canvas.clientHeight;
+    drawCanvasSurface();
 
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = COLORS.white;
-    ctx.fillRect(0, 0, W, H);
+//   const W = canvas.clientWidth,
+//     H = canvas.clientHeight;
+//
+ //   ctx.clearRect(0, 0, W, H);
+  //  ctx.fillStyle = COLORS.white;
+    //ctx.fillRect(0, 0, W, H);
 
     layoutButtons();
 
