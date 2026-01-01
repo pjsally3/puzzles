@@ -505,68 +505,77 @@
   }
 
   // Draw header words + swatches AND return per-character layout so we can highlight slots
-  function drawChainHeaderAndSwatches(chainArr) {
-    const wordsToDraw = showWords ? chainArr : maskedWords(chainArr, revealed);
+ function drawChainHeaderAndSwatches(chainArr) {
+  const wordsToDraw = showWords ? chainArr : maskedWords(chainArr, revealed);
 
-    setFont(34, true);
-    const arrow = "  →  ";
-    const widths = wordsToDraw.map((w) => measure(w));
-    const arrowW = measure(arrow);
+  setFont(34, true);
+  const arrow = "   →   ";
 
-    let totalW = widths.reduce((a, b) => a + b, 0) + arrowW * (wordsToDraw.length - 1);
-    const baselineY = 30;
-    let x = canvas.clientWidth / 2 - totalW / 2;
+  const widths = wordsToDraw.map(w => measure(w));
+  const arrowW = measure(arrow);
 
-    const layouts = [];
+  const totalW = widths.reduce((a,b)=>a+b,0) + arrowW*(wordsToDraw.length-1);
+  const baselineY = 44;              // a little lower = more breathing room
+  const startX = canvas.clientWidth/2 - totalW/2;
 
-    for (let wi = 0; wi < wordsToDraw.length; wi++) {
-      const displayed = wordsToDraw[wi];
+  // --- draw header card (fixed positioning) ---
+  const padX = 24;
+  const cardH = 62;
+  const cardY = baselineY - 44;      // aligns nicely with font size
+  const cardX = startX - padX;
+  const cardW = totalW + padX*2;
 
-      ctx.fillStyle = COLORS.black;
-      ctx.fillText(displayed, x, baselineY);
+  // subtle shadow for the card
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.28)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 8;
+  drawRoundedRect(
+    cardX, cardY, cardW, cardH, 18,
+    "rgba(255,255,255,0.10)",        // fill
+    "rgba(255,255,255,0.16)",        // border
+    2
+  );
+  ctx.restore();
 
-      const charBoxes = [];
-      for (let i = 0; i < displayed.length; i++) {
-        const left = x + measure(displayed.slice(0, i));
-        const w = Math.max(1, measure(displayed[i]));
-        charBoxes.push({ x: left, w });
-      }
+  // --- draw words ---
+  let x = startX;
+  const layouts = [];
 
-      layouts.push({ wi, x, baselineY, displayed, charBoxes });
+  ctx.fillStyle = "#eaf0ff";         // white letters
+  for (let wi=0; wi<wordsToDraw.length; wi++){
+    const displayed = wordsToDraw[wi];
 
-      x += widths[wi];
-      if (wi < wordsToDraw.length - 1) {
-        ctx.fillText(arrow, x, baselineY);
-        x += arrowW;
-      }
+    ctx.fillText(displayed, x, baselineY);
+
+    const charBoxes = [];
+    for (let i=0;i<displayed.length;i++){
+      const left = x + measure(displayed.slice(0,i));
+      const w = Math.max(1, measure(displayed[i]));
+      charBoxes.push({ x:left, w });
     }
+    layouts.push({ wi, x, baselineY, displayed, charBoxes });
 
-    // swatches under each word
-    const swW = 26,
-      swH = 10;
-    const swY = baselineY + 14;
-    const paddingX = 26;
-const paddingY = 18;
-const cardX = x - paddingX;
-const cardY = baselineY - 36;
-const cardW = totalW + paddingX * 2;
-const cardH = 56;
-layouts.forEach((L) => {
-      const rW = widths[L.wi];
-      const c = WORD_EDGE_COLORS[L.wi % WORD_EDGE_COLORS.length];
-      const swX = L.x + rW / 2 - swW / 2;
-drawRoundedRect(
-  cardX, cardY, cardW, cardH,
-  18,
-  "rgba(255,255,255,0.08)",       // fill
-  "rgba(255,255,255,0.16)",       // border
-  2
-);
-//      drawRoundedRect(swX, swY, swW, swH, 3, c, "#000", 1);
-    });
-
-    return { headerBottom: swY + swH, layouts };
+    x += widths[wi];
+    if (wi < wordsToDraw.length-1){
+      ctx.fillText(arrow, x, baselineY);
+      x += arrowW;
+    }
   }
+
+  // --- swatches under each word (tucked inside the card) ---
+  const swW=26, swH=10;
+  const swY = cardY + cardH - 16;    // near the bottom of card
+  layouts.forEach((L) => {
+    const rW = widths[L.wi];
+    const c = WORD_EDGE_COLORS[L.wi % WORD_EDGE_COLORS.length];
+    const swX = L.x + rW/2 - swW/2;
+    drawRoundedRect(swX, swY, swW, swH, 3, c, "rgba(0,0,0,0.25)", 1);
+  });
+
+  return { headerBottom: cardY + cardH, layouts };
+}
+
 
   function drawTooltipCountOnly(count, nodePos) {
     const text = `used: ${count}`;
@@ -674,20 +683,20 @@ function drawCanvasSurface(W, H) {
   // Clear the frame ONCE per draw
   ctx.clearRect(0, 0, W, H);
 
-  // Soft glassy surface
-  ctx.fillStyle = "rgba(255,255,255,0.035)";
-  ctx.fillRect(0, 0, W, H);
+ // Soft glassy surface (lighter)
+ctx.fillStyle = "rgba(255,255,255,0.09)";
+ctx.fillRect(0, 0, W, H);
 
-  // Inner vignette (subtle depth)
-  const g = ctx.createRadialGradient(
-    W / 2, H / 2, Math.min(W, H) * 0.2,
-    W / 2, H / 2, Math.max(W, H) * 0.9
-  );
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(0,0,0,0.25)");
-
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+// Inner vignette (weaker)
+const g = ctx.createRadialGradient(
+  W / 2, H / 2, Math.min(W, H) * 0.25,
+  W / 2, H / 2, Math.max(W, H) * 0.95
+);
+g.addColorStop(0, "rgba(255,255,255,0.02)");
+g.addColorStop(1, "rgba(0,0,0,0.14)");
+ctx.fillStyle = g;
+ctx.fillRect(0, 0, W, H);
+  
 }
 
   // ---------- Main draw ----------
