@@ -89,7 +89,7 @@ const DRAG_THRESHOLD = 10;        // pixels
   function makeButtons() {
     const labels = [
       { label: "Hint", action: "hint" },
-      { label: "I Give Up!", action: "reveal" },
+      { label: "Reveal", action: "reveal" },
       { label: "How To Play", action: "howto" },
       { label: "Next", action: "next" },
       { label: "Quit", action: "quit" },
