@@ -3,10 +3,6 @@
   const WORD_FILE = "words5.txt";
   const DEFAULT_CHAIN_LEN = 3; // 2..5 supported
   const ALLOWED_WORD_LENS = new Set([3, 4, 5]);
-let selectedLetter = null;        // tap-to-select
-let pressedLegendLetter = null;   // track possible tap vs drag
-let pressStart = { x: 0, y: 0 };
-const DRAG_THRESHOLD = 10;        // pixels
 
   // Visual
   const COLORS = {
@@ -27,8 +23,8 @@ const DRAG_THRESHOLD = 10;        // pixels
   const WORD_EDGE_COLORS = [
     "rgb(0,120,215)",
     "rgb(200,120,0)",
-    "rgb(0,150,120)",
     "rgb(140,0,200)",
+    "rgb(0,150,120)",
     "rgb(170,60,60)",
   ];
 
@@ -842,11 +838,7 @@ ctx.fillRect(0, 0, W, H);
     // legend items
     for (const item of legendItems) {
       setFont(18, true);
- if (selectedLetter === item.letter) {
-  drawCircle(item.cx, item.cy, LEGEND_NODE_R + 6, "rgba(255,255,255,0.10)", "rgba(255,255,255,0.60)", 2);
-}
-drawCircle(item.cx, item.cy, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
-//     drawCircle(item.cx, item.cy, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
+      drawCircle(item.cx, item.cy, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
       ctx.fillStyle = "#fff";
       const t = item.letter.toUpperCase();
       const tw = measure(t);
@@ -859,11 +851,7 @@ drawCircle(item.cx, item.cy, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
 
     // dragged letter
     if (dragging && draggedLetter) {
-    if (selectedLetter === item.letter) {
-  drawCircle(item.cx, item.cy, LEGEND_NODE_R + 6, "rgba(255,255,255,0.10)", "rgba(255,255,255,0.60)", 2);
-}
-drawCircle(item.cx, item.cy, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
-//  drawCircle(pointer.x, pointer.y, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
+      drawCircle(pointer.x, pointer.y, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
       setFont(18, true);
       ctx.fillStyle = "#fff";
       const t = draggedLetter.toUpperCase();
@@ -894,114 +882,65 @@ drawCircle(item.cx, item.cy, LEGEND_NODE_R, COLORS.node, COLORS.black, 2);
 
   // ---------- Input (pointer for mouse + touch) ----------
   canvas.addEventListener("pointerdown", (e) => {
-  canvas.setPointerCapture(e.pointerId);
-  updatePointer(e);
+    canvas.setPointerCapture(e.pointerId);
+    updatePointer(e);
 
-  // buttons
-  for (const b of buttons) {
-    if (pointInRect(pointer.x, pointer.y, b.rect)) {
-      handleAction(b.action);
-      return;
+    // buttons
+    for (const b of buttons) {
+      if (pointInRect(pointer.x, pointer.y, b.rect)) {
+        handleAction(b.action);
+        return;
+      }
     }
-  }
 
-  // block play when overlay open
-  if (howtoOverlay && howtoOverlay.style.display === "flex") return;
+    // howto overlay blocks play
+    if (howtoOverlay && howtoOverlay.style.display === "flex") return;
 
-  // check legend hit
-  pressedLegendLetter = null;
-  for (const item of legendItems) {
-    if (Math.hypot(pointer.x - item.cx, pointer.y - item.cy) <= LEGEND_NODE_R) {
-      pressedLegendLetter = item.letter;
-      pressStart = { x: pointer.x, y: pointer.y };
-      return; // wait: tap or drag will be decided by move/up
+    // start dragging if touch/click on legend letter
+    for (const item of legendItems) {
+      if (Math.hypot(pointer.x - item.cx, pointer.y - item.cy) <= LEGEND_NODE_R) {
+        dragging = true;
+        draggedLetter = item.letter;
+        return;
+      }
     }
-  }
+  });
 
-  // if user taps directly on a node while a letter is selected, try it
-  const node = hitNodeAt(pointer.x, pointer.y);
-  if (node && selectedLetter) {
-    tryPlaceLetterOnNode(selectedLetter, node);
-    selectedLetter = null;
-    return;
-  }
-
-  // tap empty space deselects
-  selectedLetter = null;
-});
-
-function tryPlaceLetterOnNode(letter, node) {
-  if (!letter || !node || !chain || showWords || solved) return;
-
-  if (node === letter) {
-    // correct
-    revealAllOccurrences(chain, revealed, letter);
-
-    const hidden = hiddenCounts(chain, revealed);
-    const totalHidden = [...hidden.values()].reduce((a, b) => a + b, 0);
-    if (totalHidden === 0) {
-      solved = true;
-      solvedElapsedMs = performance.now() - puzzleStart;
-      showWords = true;
-    }
-  } else {
-    // wrong — but do NOT count error if node’s letter already revealed anywhere
-    if (!isLetterAlreadyRevealedAny(chain, revealed, node)) {
-      errorCount += 1;
-    }
-  }
-}
-
- canvas.addEventListener("pointermove", (e) => {
-  updatePointer(e);
-
-  // If finger started on a legend letter, decide whether this becomes a drag
-  if (!dragging && pressedLegendLetter) {
-    const dx = pointer.x - pressStart.x;
-    const dy = pointer.y - pressStart.y;
-    if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
-      dragging = true;
-      draggedLetter = pressedLegendLetter;
-      // once dragging starts, we’re no longer treating it as a tap
-      pressedLegendLetter = null;
-      // selecting while dragging isn't needed
-      selectedLetter = null;
-    }
-  }
-});
-
+  canvas.addEventListener("pointermove", (e) => {
+    updatePointer(e);
+  });
 
   canvas.addEventListener("pointerup", (e) => {
-  updatePointer(e);
-
-  // If we were dragging, keep your drag-drop behavior
-  if (dragging && draggedLetter) {
-    const node = hitNodeAt(pointer.x, pointer.y);
-    if (node) {
-      tryPlaceLetterOnNode(draggedLetter, node);
+    updatePointer(e);
+    if (!dragging || !draggedLetter || !chain) {
+      dragging = false;
+      draggedLetter = null;
+      return;
     }
+
+    const node = hitNodeAt(pointer.x, pointer.y);
+    if (node && !showWords && !solved) {
+      if (node === draggedLetter) {
+        revealAllOccurrences(chain, revealed, draggedLetter);
+
+        const hidden = hiddenCounts(chain, revealed);
+        const totalHidden = [...hidden.values()].reduce((a, b) => a + b, 0);
+        if (totalHidden === 0) {
+          solved = true;
+          solvedElapsedMs = performance.now() - puzzleStart;
+          showWords = true;
+        }
+      } else {
+        // wrong — but do NOT count error if that node's letter is already revealed anywhere
+        if (!isLetterAlreadyRevealedAny(chain, revealed, node)) {
+          errorCount += 1;
+        }
+      }
+    }
+
     dragging = false;
     draggedLetter = null;
-    pressedLegendLetter = null;
-    return;
-  }
-
-  // Not dragging: if user pressed a legend letter and released without dragging -> TAP SELECT
-  if (pressedLegendLetter) {
-    // toggle select
-    selectedLetter = (selectedLetter === pressedLegendLetter) ? null : pressedLegendLetter;
-    pressedLegendLetter = null;
-    return;
-  }
-
-  // Not dragging, not legend tap: if a letter is selected and they tapped a node -> attempt
-  const node = hitNodeAt(pointer.x, pointer.y);
-  if (node && selectedLetter) {
-    tryPlaceLetterOnNode(selectedLetter, node);
-    selectedLetter = null;
-    return;
-  }
-});
+  });
 
   function updatePointer(e) {
     const rect = canvas.getBoundingClientRect();
