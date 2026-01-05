@@ -3,6 +3,7 @@
   const WORD_FILE = "words5.txt";
   const DEFAULT_CHAIN_LEN = 3; // 2..5 supported
   const ALLOWED_WORD_LENS = new Set([3, 4, 5]);
+  const IS_PHONE = Math.min(window.innerWidth, window.innerHeight) < 520;
 
   // Visual
   const COLORS = {
@@ -23,13 +24,15 @@
   const WORD_EDGE_COLORS = [
     "rgb(0,120,215)",
     "rgb(200,120,0)",
-    "rgb(140,0,200)",
     "rgb(0,150,120)",
+    "rgb(140,0,200)",
     "rgb(170,60,60)",
   ];
 
-  const NODE_R = 22;
-  const LEGEND_NODE_R = 16;
+  const NODE_R = IS_PHONE ? 16 : 22;
+  const LEGEND_NODE_R = IS_PHONE ? 12 : 16;
+  //const NODE_R = 22;
+  //const LEGEND_NODE_R = 16;
   const LANE_SPACING = 22;
   const MAX_LANE_BOOST = 6;
 
@@ -223,7 +226,8 @@
     const cols = Math.max(1, Math.ceil(n / rows));
 
     const leftMargin = 40;
-    const rightMargin = 310; // reserve legend space
+    const rightMargin = IS_PHONE ? 220 : 310;
+//const rightMargin = 310; // reserve legend space
     const usableW = Math.max(220, W - leftMargin - rightMargin);
     const step = cols > 1 ? usableW / (cols - 1) : 0;
 
@@ -454,7 +458,9 @@
 
   // ---------- UI drawing ----------
   function setFont(px, bold = false) {
-    ctx.font = `${bold ? "600 " : ""}${px}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+    const size = IS_PHONE ? Math.round(px * 0.85) : px;
+    ctx.font = `${bold ? "700 " : ""}${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+    //ctx.font = `${bold ? "600 " : ""}${px}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
   }
 
   function measure(text) {
@@ -515,12 +521,14 @@
   const arrowW = measure(arrow);
 
   const totalW = widths.reduce((a,b)=>a+b,0) + arrowW*(wordsToDraw.length-1);
-  const baselineY = 44;              // a little lower = more breathing room
+  const baselineY = IS_PHONE ? 38 : 44;
+  const cardH = IS_PHONE ? 52 : 62;
+  //const baselineY = 44;              // a little lower = more breathing room
   const startX = canvas.clientWidth/2 - totalW/2;
 
   // --- draw header card (fixed positioning) ---
   const padX = 24;
-  const cardH = 62;
+  //const cardH = 62;
   const cardY = baselineY - 44;      // aligns nicely with font size
   const cardX = startX - padX;
   const cardW = totalW + padX*2;
@@ -635,45 +643,94 @@
   }
 
   function buildLegend(hiddenMap) {
-    const W = canvas.clientWidth;
-    const legendX = W - 250;
-    const legendY = 110;
+  const W = canvas.clientWidth;
 
-    const remaining = [...hiddenMap.entries()]
-      .filter(([, n]) => n > 0)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([letter, n]) => ({ letter, remaining: n }));
+  const remaining = [...hiddenMap.entries()]
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([letter, n]) => ({ letter, remaining: n }));
 
-    const nItems = remaining.length;
-    const rowH = 32,
-      pad = 12;
-    const twoCols = nItems > 8;
-    const colGap = 20,
-      colW = 90;
-    const rowsPerCol = twoCols ? 8 : nItems;
+  const nItems = remaining.length;
 
-    const boxW = twoCols ? colW * 2 + colGap + pad * 2 : colW + pad * 2 + 50;
-    const boxH = pad + rowH * (twoCols ? 8 : nItems) + pad;
+  // iPhone sizing tweaks (no logic changes, just numbers)
+  const pad = IS_PHONE ? 10 : 12;
+  const rowH = IS_PHONE ? 28 : 32;
 
-    legendItems = [];
-    for (let idx = 0; idx < remaining.length; idx++) {
-      const item = remaining[idx];
-      let col = 0,
-        row = idx;
-      if (twoCols) {
-        col = idx < rowsPerCol ? 0 : 1;
-        row = idx < rowsPerCol ? idx : idx - rowsPerCol;
-        if (row >= rowsPerCol) continue;
-      }
-      const x0 = legendX + pad + col * (colW + colGap);
-      const y0 = legendY + pad + row * rowH;
-      const cx = x0 + LEGEND_NODE_R;
-      const cy = y0 + LEGEND_NODE_R;
-      legendItems.push({ letter: item.letter, cx, cy, remaining: item.remaining });
+  const colGap = IS_PHONE ? 14 : 20;
+  const colW = IS_PHONE ? 78 : 90;
+
+  // Use 2 columns a bit later on phone
+  const twoCols = nItems > (IS_PHONE ? 10 : 8);
+  const rowsPerCol = twoCols ? (IS_PHONE ? 9 : 8) : nItems;
+
+  const boxW = twoCols ? colW * 2 + colGap + pad * 2 : colW + pad * 2 + (IS_PHONE ? 40 : 50);
+  const boxH = pad + rowH * (twoCols ? rowsPerCol : nItems) + pad;
+
+  // Position legend based on its computed width (prevents off-screen / overlap)
+  const legendX = W - boxW - (IS_PHONE ? 12 : 16);
+  const legendY = IS_PHONE ? 92 : 110;
+
+  legendItems = [];
+  for (let idx = 0; idx < remaining.length; idx++) {
+    const item = remaining[idx];
+    let col = 0, row = idx;
+
+    if (twoCols) {
+      col = idx < rowsPerCol ? 0 : 1;
+      row = idx < rowsPerCol ? idx : idx - rowsPerCol;
+      if (row >= rowsPerCol) continue; // ignore overflow
     }
 
-    return { legendX, legendY, boxW, boxH };
+    const x0 = legendX + pad + col * (colW + colGap);
+    const y0 = legendY + pad + row * rowH;
+    const cx = x0 + LEGEND_NODE_R;
+    const cy = y0 + LEGEND_NODE_R;
+
+    legendItems.push({ letter: item.letter, cx, cy, remaining: item.remaining });
   }
+
+  return { legendX, legendY, boxW, boxH };
+}
+//function buildLegend(hiddenMap) {
+//    const W = canvas.clientWidth;
+  //  const legendX = W - 250;
+ //   const legendY = 110;
+
+//    const remaining = [...hiddenMap.entries()]
+  //    .filter(([, n]) => n > 0)
+    //  .sort((a, b) => a[0].localeCompare(b[0]))
+//      .map(([letter, n]) => ({ letter, remaining: n }));
+
+  //  const nItems = remaining.length;
+//    const rowH = 32,
+  //    pad = 12;
+    //const twoCols = nItems > 8;
+    //const colGap = 20,
+      //colW = 90;
+    //const rowsPerCol = twoCols ? 8 : nItems;
+
+    //const boxW = twoCols ? colW * 2 + colGap + pad * 2 : colW + pad * 2 + 50;
+    //const boxH = pad + rowH * (twoCols ? 8 : nItems) + pad;
+
+    //legendItems = [];
+    //for (let idx = 0; idx < remaining.length; idx++) {
+      //const item = remaining[idx];
+      //let col = 0,
+        //row = idx;
+      //if (twoCols) {
+        //col = idx < rowsPerCol ? 0 : 1;
+        //row = idx < rowsPerCol ? idx : idx - rowsPerCol;
+        //if (row >= rowsPerCol) continue;
+      //}
+      //const x0 = legendX + pad + col * (colW + colGap);
+      //const y0 = legendY + pad + row * rowH;
+      //const cx = x0 + LEGEND_NODE_R;
+      //const cy = y0 + LEGEND_NODE_R;
+      //legendItems.push({ letter: item.letter, cx, cy, remaining: item.remaining });
+    //}
+
+    //return { legendX, legendY, boxW, boxH };
+  //}
 
   function withAlpha(rgbString, a) {
     if (rgbString.startsWith("rgba")) return rgbString;
