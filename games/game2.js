@@ -1,29 +1,37 @@
 (() => {
-  const ROWS = 3;
-  const COLS = 4;
   const INTERVAL_MS = 1000;
 
   const gridEl = document.getElementById("grid");
   const statusEl = document.getElementById("status");
+
+  const rowsRange = document.getElementById("rowsRange");
+  const colsRange = document.getElementById("colsRange");
+  const rowsVal = document.getElementById("rowsVal");
+  const colsVal = document.getElementById("colsVal");
+
+  const startBtn = document.getElementById("startBtn");
   const quitBtn = document.getElementById("quitBtn");
 
-  /** index: 0..(ROWS*COLS-1) */
+  let rows = 3;
+  let cols = 4;
+
   let activeIndex = -1;
   let timerId = null;
 
-  function makeCells() {
-    gridEl.innerHTML = "";
-    for (let i = 0; i < ROWS * COLS; i++) {
-      const cell = document.createElement("button");
-      cell.className = "cell";
-      cell.type = "button";
-      cell.setAttribute("aria-label", `Cell ${i + 1}`);
-      cell.addEventListener("click", () => {
-        // For now: do nothing besides allow quitting.
-        // Later: this will become "click the NEXT cell to win".
-      });
-      gridEl.appendChild(cell);
+  function updateSliderLabels() {
+    rowsVal.textContent = rowsRange.value;
+    colsVal.textContent = colsRange.value;
+  }
+
+  function stop() {
+    if (timerId !== null) {
+      window.clearInterval(timerId);
+      timerId = null;
     }
+  }
+
+  function randomIndex() {
+    return Math.floor(Math.random() * rows * cols);
   }
 
   function setDot(index) {
@@ -37,49 +45,77 @@
     // add new dot
     const cell = gridEl.children[activeIndex];
     if (!cell) return;
+
     const dot = document.createElement("div");
     dot.className = "dot";
     cell.appendChild(dot);
   }
 
-  function randomIndex() {
-    return Math.floor(Math.random() * ROWS * COLS);
-  }
-
   function tick() {
-    // avoid repeating same cell if possible
     let idx = randomIndex();
-    if (ROWS * COLS > 1) {
+    if (rows * cols > 1) {
       while (idx === activeIndex) idx = randomIndex();
     }
     setDot(idx);
   }
 
-  function start() {
-    makeCells();
-    tick();
-    timerId = window.setInterval(tick, INTERVAL_MS);
+  function buildGrid() {
+    gridEl.innerHTML = "";
+
+    // Set grid dimensions + aspect ratio dynamically
+    gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    gridEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    gridEl.style.aspectRatio = `${cols} / ${rows}`;
+
+    const total = rows * cols;
+    for (let i = 0; i < total; i++) {
+      const cell = document.createElement("button");
+      cell.className = "cell";
+      cell.type = "button";
+      cell.setAttribute("aria-label", `Cell ${i + 1}`);
+
+      cell.addEventListener("click", () => {
+        // Phase 0: no win condition yet; dot just moves
+        // Next phase: clicking the NEXT cell wins
+      });
+
+      gridEl.appendChild(cell);
+    }
   }
 
-  function stop() {
-    if (timerId) window.clearInterval(timerId);
-    timerId = null;
+  function start() {
+    stop();
+    rows = parseInt(rowsRange.value, 10);
+    cols = parseInt(colsRange.value, 10);
+
+    activeIndex = -1;
+    buildGrid();
+    tick();
+
+    timerId = window.setInterval(tick, INTERVAL_MS);
+    statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
   }
+
+  // UI wiring
+  rowsRange.addEventListener("input", updateSliderLabels);
+  colsRange.addEventListener("input", updateSliderLabels);
+
+  startBtn.addEventListener("click", start);
 
   quitBtn.addEventListener("click", () => {
     stop();
-    // back to your main page
     window.location.href = "../index.html";
   });
 
-  // stop timer if tab goes inactive (nice mobile behavior)
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stop();
-    else if (!timerId) {
+    else if (timerId === null && gridEl.children.length > 0) {
       tick();
       timerId = window.setInterval(tick, INTERVAL_MS);
     }
   });
 
-  start();
+  // Initial labels + default grid preview (no movement until Start)
+  updateSliderLabels();
+  buildGrid();
 })();
