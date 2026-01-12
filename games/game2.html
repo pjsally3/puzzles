@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>PJ Puzzles • Grid Dot</title>
+  <style>
+    :root{
+      --bg0:#0b1020; --bg1:#0f1a33;
+      --ink:#eaf0ff; --muted:#b8c3e3;
+      --panel: rgba(255,255,255,.06);
+      --panelBorder: rgba(255,255,255,.10);
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+      --radius: 18px;
+      --focus: 0 0 0 4px rgba(120,170,255,.25);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0;}
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 700px at 15% 10%, rgba(102,140,255,.18), transparent 60%),
+        radial-gradient(900px 700px at 85% 25%, rgba(255,190,120,.12), transparent 60%),
+        radial-gradient(900px 700px at 55% 90%, rgba(145,255,210,.10), transparent 55%),
+        linear-gradient(160deg, var(--bg0), var(--bg1));
+      overflow:hidden;
+    }
+    .page{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      padding:16px;
+      gap:12px;
+    }
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 10px 4px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px;
+      color:var(--ink); text-decoration:none;
+      -webkit-tap-highlight-color: transparent;
+      border-radius: 12px;
+      padding: 6px 8px;
+    }
+    .brand:focus-visible{ outline:none; box-shadow: var(--focus); }
+    .logo{
+      width:34px; height:34px; border-radius:12px;
+      background: linear-gradient(145deg, rgba(120,170,255,.9), rgba(255,190,120,.75));
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+      position:relative; overflow:hidden;
+      flex:0 0 auto;
+    }
+    .logo:before{
+      content:""; position:absolute; inset:-30%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.55), transparent 40%);
+      transform: rotate(15deg);
+    }
+    .name{ font-weight:800; letter-spacing:.6px; line-height:1.1; }
+    .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+    .pill{
+      font-size:12px; color:var(--muted);
+      border: 1px solid rgba(255,255,255,.18);
+      padding:8px 12px; border-radius:999px;
+      background: rgba(255,255,255,.06);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      white-space:nowrap;
+    }
+    .stage{
+      flex:1;
+      background: var(--panel);
+      border: 1px solid var(--panelBorder);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+      padding: 18px;
+      min-height: 0;
+    }
+    .grid{
+      width:min(560px, 92vw);
+      aspect-ratio: 4 / 3; /* 4 columns wide, 3 rows tall */
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 10px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+    }
+    .cell{
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.05);
+      position: relative;
+      cursor: pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cell:focus-visible{ outline:none; box-shadow: var(--focus); }
+    .dot{
+      width: 14px; height: 14px;
+      border-radius: 999px;
+      background: rgba(234,240,255,.92);
+      box-shadow: 0 10px 22px rgba(0,0,0,.35);
+      position:absolute;
+      left:50%; top:50%;
+      transform: translate(-50%, -50%);
+    }
+    .controls{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap: wrap;
+    }
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.18);
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor:pointer;
+      background: rgba(255,255,255,.10);
+      color: var(--ink);
+    }
+    .btn:hover{ background: rgba(255,255,255,.16); }
+    .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+    .status{
+      color: rgba(234,240,255,.75);
+      font-size: 13px;
+      text-align:center;
+    }
+    @media (max-width: 520px){
+      .pill{ display:none; }
+      .grid{ gap: 8px; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="../index.html" aria-label="Back to PJ Puzzles">
+        <span class="logo" aria-hidden="true"></span>
+        <span>
+          <div class="name">PJ Puzzles</div>
+          <div class="sub">Grid Dot (Game 2)</div>
+        </span>
+      </a>
+      <div class="pill">Prototype • Random dot • Quit anytime</div>
+    </header>
+
+    <main class="stage">
+      <div id="grid" class="grid" aria-label="3 by 4 grid"></div>
+
+      <div class="controls">
+        <button id="quitBtn" class="btn">Quit</button>
+      </div>
+
+      <div class="status" id="status">Dot moves every 1 second.</div>
+    </main>
+  </div>
+
+  <script src="game2.js"></script>
+</body>
+</html>
