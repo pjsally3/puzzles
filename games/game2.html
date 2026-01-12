@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>PJ Puzzles • Grid Dot</title>
+  <meta name="description" content="PJ Puzzles — Grid Dot prototype" />
+
   <style>
     :root{
       --bg0:#0b1020; --bg1:#0f1a33;
@@ -71,6 +73,7 @@
       -webkit-backdrop-filter: blur(8px);
       white-space:nowrap;
     }
+
     .stage{
       flex:1;
       background: var(--panel);
@@ -79,18 +82,81 @@
       box-shadow: var(--shadow);
       display:flex;
       flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:16px;
-      padding: 18px;
+      gap:14px;
+      padding: 16px;
       min-height: 0;
     }
+
+    .controls{
+      display:flex;
+      gap:12px;
+      align-items:flex-end;
+      justify-content:space-between;
+      flex-wrap: wrap;
+      padding: 6px 4px 0;
+    }
+
+    .control-group{
+      display:flex;
+      gap:12px;
+      align-items:flex-end;
+      flex-wrap: wrap;
+    }
+
+    .slider{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 180px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.16);
+    }
+    .slider label{
+      font-size: 12px;
+      color: rgba(234,240,255,.85);
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .slider .value{
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .slider input[type="range"]{
+      width: 100%;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.18);
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor:pointer;
+      background: rgba(255,255,255,.10);
+      color: var(--ink);
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .btn:hover{ background: rgba(255,255,255,.16); }
+    .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+
+    .grid-wrap{
+      flex: 1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:0;
+    }
+
     .grid{
-      width:min(560px, 92vw);
-      aspect-ratio: 4 / 3; /* 4 columns wide, 3 rows tall */
+      width:min(640px, 94vw);
+      /* aspect-ratio is set dynamically based on cols/rows */
       display:grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(3, 1fr);
       gap: 10px;
       padding: 14px;
       border-radius: 16px;
@@ -107,6 +173,7 @@
       -webkit-tap-highlight-color: transparent;
     }
     .cell:focus-visible{ outline:none; box-shadow: var(--focus); }
+
     .dot{
       width: 14px; height: 14px;
       border-radius: 999px;
@@ -116,38 +183,22 @@
       left:50%; top:50%;
       transform: translate(-50%, -50%);
     }
-    .controls{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:center;
-      flex-wrap: wrap;
-    }
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.18);
-      padding: 10px 14px;
-      font-weight: 700;
-      cursor:pointer;
-      background: rgba(255,255,255,.10);
-      color: var(--ink);
-    }
-    .btn:hover{ background: rgba(255,255,255,.16); }
-    .btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+
     .status{
       color: rgba(234,240,255,.75);
       font-size: 13px;
       text-align:center;
+      padding-bottom: 6px;
     }
+
     @media (max-width: 520px){
       .pill{ display:none; }
       .grid{ gap: 8px; padding: 12px; }
+      .slider{ min-width: 160px; }
     }
   </style>
 </head>
+
 <body>
   <div class="page">
     <header class="topbar">
@@ -158,17 +209,33 @@
           <div class="sub">Grid Dot (Game 2)</div>
         </span>
       </a>
-      <div class="pill">Prototype • Random dot • Quit anytime</div>
+      <div class="pill">Prototype • Random dot • Start to redraw</div>
     </header>
 
     <main class="stage">
-      <div id="grid" class="grid" aria-label="3 by 4 grid"></div>
-
       <div class="controls">
+        <div class="control-group">
+          <div class="slider">
+            <label for="rowsRange">Rows <span class="value" id="rowsVal">3</span></label>
+            <input id="rowsRange" type="range" min="2" max="10" value="3" />
+          </div>
+
+          <div class="slider">
+            <label for="colsRange">Columns <span class="value" id="colsVal">4</span></label>
+            <input id="colsRange" type="range" min="2" max="10" value="4" />
+          </div>
+
+          <button id="startBtn" class="btn">Start</button>
+        </div>
+
         <button id="quitBtn" class="btn">Quit</button>
       </div>
 
-      <div class="status" id="status">Dot moves every 1 second.</div>
+      <div class="grid-wrap">
+        <div id="grid" class="grid" aria-label="Grid"></div>
+      </div>
+
+      <div class="status" id="status">Set rows/columns, then press Start.</div>
     </main>
   </div>
 
