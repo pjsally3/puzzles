@@ -83,24 +83,25 @@
     }
   }
 
-  function start() {
-    stop();
-    rows = parseInt(rowsRange.value, 10);
-    cols = parseInt(colsRange.value, 10);
+ function startGame() {
+  stop();
+  rows = parseInt(rowsRange.value, 10);
+  cols = parseInt(colsRange.value, 10);
 
-    activeIndex = -1;
-    buildGrid();
-    tick();
+  activeIndex = -1;
+  buildGrid();
+  tick();
 
-    timerId = window.setInterval(tick, INTERVAL_MS);
-    statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
-  }
+  timerId = window.setInterval(tick, INTERVAL_MS);
+  statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
+}
+
 
   // UI wiring
   rowsRange.addEventListener("input", updateSliderLabels);
   colsRange.addEventListener("input", updateSliderLabels);
 
-  startBtn.addEventListener("click", start);
+  startBtn.addEventListener("click", startgame);
 
   quitBtn.addEventListener("click", () => {
     stop();
