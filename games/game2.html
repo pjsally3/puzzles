@@ -198,6 +198,27 @@
       user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
+.cell.wrong{
+  background: rgba(255,80,110,.22);
+  border-color: rgba(255,80,110,.55);
+}
+
+.cell.correct{
+  background: rgba(80,255,170,.22);
+  border-color: rgba(80,255,170,.60);
+}
+
+.banner{
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(0,0,0,.22);
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: center;
+  font-weight: 900;
+  letter-spacing: .3px;
+  color: rgba(234,240,255,.95);
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+}
 
     .dot{
       width: 14px; height: 14px;
@@ -263,6 +284,7 @@
       </section>
 
       <section class="right" id="rightPanel" aria-label="Game">
+        <div id="banner" class="banner" style="display:none;"></div>
         <div class="grid-wrap">
           <div id="grid" class="grid" aria-label="Grid"></div>
         </div>
