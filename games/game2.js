@@ -153,7 +153,7 @@ function fitGridToPanel() {
   timerId = window.setInterval(tick, INTERVAL_MS);
 
   statusEl.textContent =
-    `Running: ${rows}×${cols}. Δrow=${rowInc}, Δcol=${colInc}. Moves every 1 second.`;
+    `Running: ${rows}×${cols}. Moves every 1 second.`;
 }
 
 
