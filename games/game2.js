@@ -61,6 +61,37 @@
     }
     setDot(idx);
   }
+function fitGridToPanel() {
+  const panel = document.getElementById("rightPanel");
+  if (!panel) return;
+
+  // Available space inside the right panel:
+  const panelRect = panel.getBoundingClientRect();
+  const statusRect = statusEl.getBoundingClientRect();
+
+  // Height available for the grid-wrap area (leave a little breathing room)
+  const availableH = Math.max(140, (statusRect.top - panelRect.top) - 18);
+  const availableW = Math.max(200, panelRect.width - 28);
+
+  const ratio = cols / rows; // width / height
+
+  let width, height;
+  if (availableW / availableH > ratio) {
+    // height-limited
+    height = availableH;
+    width = height * ratio;
+  } else {
+    // width-limited
+    width = availableW;
+    height = width / ratio;
+  }
+
+  gridEl.style.width = `${Math.floor(width)}px`;
+  gridEl.style.height = `${Math.floor(height)}px`;
+
+  // IMPORTANT: don't let aspect-ratio fight our explicit sizing
+  gridEl.style.aspectRatio = "";
+}
 
   function buildGrid() {
     gridEl.innerHTML = "";
@@ -68,7 +99,6 @@
     // Set grid dimensions + aspect ratio dynamically
     gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     gridEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-    gridEl.style.aspectRatio = `${cols} / ${rows}`;
 
     const total = rows * cols;
     for (let i = 0; i < total; i++) {
@@ -82,6 +112,8 @@
 
       gridEl.appendChild(cell);
     }
+    fitGridToPanel();
+
   }
 
   function startGame() {
@@ -93,6 +125,7 @@
     activeIndex = -1;
     buildGrid();
     tick();
+fitGridToPanel();
 
     timerId = window.setInterval(tick, INTERVAL_MS);
     statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
@@ -116,6 +149,9 @@
       timerId = window.setInterval(tick, INTERVAL_MS);
     }
   });
+window.addEventListener("resize", () => {
+  if (gridEl.children.length > 0) fitGridToPanel();
+});
 
   // Init
   updateSliderLabels();
