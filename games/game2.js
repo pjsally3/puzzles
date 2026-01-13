@@ -13,7 +13,7 @@
   const quitBtn = document.getElementById("quitBtn");
 
   // If any of these are null, the script isn't wired to the right page.
-  if (!gridEl || !statusEl || !rowsRange || !colsRange || !startBtn || !quitBtn) {
+  if (!gridEl || !statusEl || !rowsRange || !colsRange || !Btn || !quitBtn) {
     console.error("Game2: missing DOM elements. Check ids in game2.html.");
     return;
   }
@@ -184,5 +184,5 @@ window.addEventListener("resize", () => {
   rows = parseInt(rowsRange.value, 10);
   cols = parseInt(colsRange.value, 10);
   buildGrid();                       // show a grid immediately
-  statusEl.textContent = "Ready. Press Start to begin.";
+  statusEl.textContent = "Ready. Press Start to commence.";
 })();
