@@ -15,8 +15,8 @@
       --radius: 18px;
       --focus: 0 0 0 4px rgba(120,170,255,.25);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%; margin:0;}
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; }
     body{
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       color: var(--ink);
@@ -65,6 +65,7 @@
     }
     .name{ font-weight:800; letter-spacing:.6px; line-height:1.1; }
     .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+
     .pill{
       font-size:12px; color:var(--muted);
       border: 1px solid rgba(255,255,255,.18);
@@ -85,7 +86,7 @@
       overflow:hidden;
 
       display:grid;
-      grid-template-columns: 280px 1fr;  /* LEFT controls, RIGHT grid */
+      grid-template-columns: 280px 1fr;
       min-height: 0;
     }
 
@@ -104,6 +105,7 @@
       flex-direction:column;
       gap: 12px;
       min-height: 0;
+      position: relative;
     }
 
     .panel{
@@ -112,7 +114,6 @@
       border-radius: 14px;
       padding: 12px;
     }
-
     .panel h3{
       margin: 0 0 10px 0;
       font-size: 13px;
@@ -165,12 +166,6 @@
     }
     .btn.primary:hover{ background: rgba(234,240,255,1); }
 
-    .status{
-      color: rgba(234,240,255,.75);
-      font-size: 13px;
-      text-align:center;
-    }
-
     .grid-wrap{
       flex: 1;
       display:flex;
@@ -180,13 +175,13 @@
     }
 
     .grid{
-      width:min(760px, 92vw);
       display:grid;
       gap: 10px;
       padding: 14px;
       border-radius: 16px;
       border: 1px solid rgba(255,255,255,.14);
       background: rgba(0,0,0,.18);
+      /* width/height set by JS to fit panel */
     }
 
     .cell{
@@ -198,27 +193,16 @@
       user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
-.cell.wrong{
-  background: rgba(255,80,110,.22);
-  border-color: rgba(255,80,110,.55);
-}
 
-.cell.correct{
-  background: rgba(80,255,170,.22);
-  border-color: rgba(80,255,170,.60);
-}
+    .cell.wrong{
+      background: rgba(255,80,110,.22);
+      border-color: rgba(255,80,110,.55);
+    }
 
-.banner{
-  border: 1px solid rgba(255,255,255,.16);
-  background: rgba(0,0,0,.22);
-  border-radius: 14px;
-  padding: 12px 14px;
-  text-align: center;
-  font-weight: 900;
-  letter-spacing: .3px;
-  color: rgba(234,240,255,.95);
-  box-shadow: 0 18px 60px rgba(0,0,0,.35);
-}
+    .cell.correct{
+      background: rgba(80,255,170,.22);
+      border-color: rgba(80,255,170,.60);
+    }
 
     .dot{
       width: 14px; height: 14px;
@@ -230,12 +214,37 @@
       transform: translate(-50%, -50%);
     }
 
+    .status{
+      color: rgba(234,240,255,.75);
+      font-size: 13px;
+      text-align:center;
+      padding-bottom: 6px;
+    }
+
+    .banner{
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.22);
+      border-radius: 14px;
+      padding: 12px 14px;
+      text-align: center;
+      font-weight: 900;
+      letter-spacing: .3px;
+      color: rgba(234,240,255,.95);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+    }
+
     @media (max-width: 900px){
       .stage{ grid-template-columns: 1fr; }
-      .left{ border-right:none; border-bottom: 1px solid rgba(255,255,255,.10); }
+      .left{
+        border-right:none;
+        border-bottom: 1px solid rgba(255,255,255,.10);
+      }
       .btn{ width:auto; }
-      .left .panel:last-child{ display:flex; gap:10px; }
-      .left .panel:last-child .btn{ flex:1; }
+      .left .panel.actions{
+        display:flex;
+        gap:10px;
+      }
+      .left .panel.actions .btn{ flex:1; }
     }
     @media (max-width: 520px){
       .pill{ display:none; }
@@ -243,7 +252,6 @@
     }
   </style>
 
-  <!-- IMPORTANT: defer ensures the script runs after DOM exists -->
   <script src="game2.js" defer></script>
 </head>
 
@@ -257,7 +265,7 @@
           <div class="sub">Grid Dot (Game 2)</div>
         </span>
       </a>
-      <div class="pill">Prototype • Random dot • Start redraws</div>
+      <div class="pill">Pattern • Guess the next cell</div>
     </header>
 
     <main class="stage">
@@ -267,16 +275,16 @@
 
           <div class="slider">
             <label for="rowsRange">Rows <span class="value" id="rowsVal">3</span></label>
-            <input id="rowsRange" type="range" min="2" max="10" value="3" />
+            <input id="rowsRange" type="range" min="2" max="12" value="3" />
           </div>
 
           <div class="slider">
             <label for="colsRange">Columns <span class="value" id="colsVal">4</span></label>
-            <input id="colsRange" type="range" min="2" max="10" value="4" />
+            <input id="colsRange" type="range" min="2" max="12" value="4" />
           </div>
         </div>
 
-        <div class="panel">
+        <div class="panel actions">
           <h3>Actions</h3>
           <button id="startBtn" class="btn primary">Start</button>
           <button id="quitBtn" class="btn">Quit</button>
@@ -285,9 +293,11 @@
 
       <section class="right" id="rightPanel" aria-label="Game">
         <div id="banner" class="banner" style="display:none;"></div>
-        <div class="grid-wrap">
+
+        <div class="grid-wrap" id="gridWrap">
           <div id="grid" class="grid" aria-label="Grid"></div>
         </div>
+
         <div class="status" id="status">Loading…</div>
       </section>
     </main>
