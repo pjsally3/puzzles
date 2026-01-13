@@ -20,6 +20,10 @@
 
   let rows = 3;
   let cols = 4;
+  let currow = 0;
+  let curcol = 0;
+  let rowinc = 0;
+  let colinc = 0;
   let activeIndex = -1;
   let timerId = null;
 
@@ -54,13 +58,21 @@
     cell.appendChild(dot);
   }
 
-  function tick() {
-    let idx = randomIndex();
-    if (rows * cols > 1) {
-      while (idx === activeIndex) idx = randomIndex();
-    }
-    setDot(idx);
-  }
+  function randIntInclusive(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function idxFromRC(r, c) {
+  return r * cols + c;
+}
+function tick() {
+  // advance using modular arithmetic
+  curRow = (curRow + rowInc) % rows;
+  curCol = (curCol + colInc) % cols;
+
+  setDot(idxFromRC(curRow, curCol));
+}
+
 function fitGridToPanel() {
   const panel = document.getElementById("rightPanel");
   if (!panel) return;
@@ -116,20 +128,34 @@ function fitGridToPanel() {
 
   }
 
-  function startGame() {
-    stopTimer();
+ function startGame() {
+  stopTimer();
 
-    rows = parseInt(rowsRange.value, 10);
-    cols = parseInt(colsRange.value, 10);
+  rows = parseInt(rowsRange.value, 10);
+  cols = parseInt(colsRange.value, 10);
 
-    activeIndex = -1;
-    buildGrid();
-    tick();
-fitGridToPanel();
+  // choose new pattern each start
+  rowInc = randIntInclusive(0, rows - 1);
+  colInc = randIntInclusive(0, cols - 1);
+  if (rowInc === 0 && colInc === 0) colInc = 1 % cols;
 
-    timerId = window.setInterval(tick, INTERVAL_MS);
-    statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
-  }
+
+  // choose random starting position
+  curRow = randIntInclusive(0, rows - 1);
+  curCol = randIntInclusive(0, cols - 1);
+
+  activeIndex = -1;
+  buildGrid();
+
+  // show immediately at starting location (no advance yet)
+  setDot(idxFromRC(curRow, curCol));
+
+  timerId = window.setInterval(tick, INTERVAL_MS);
+
+  statusEl.textContent =
+    `Running: ${rows}×${cols}. Δrow=${rowInc}, Δcol=${colInc}. Moves every 1 second.`;
+}
+
 
   // Wire UI
   rowsRange.addEventListener("input", updateSliderLabels);
