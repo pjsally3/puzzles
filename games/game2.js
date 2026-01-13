@@ -12,9 +12,14 @@
   const startBtn = document.getElementById("startBtn");
   const quitBtn = document.getElementById("quitBtn");
 
+  // If any of these are null, the script isn't wired to the right page.
+  if (!gridEl || !statusEl || !rowsRange || !colsRange || !startBtn || !quitBtn) {
+    console.error("Game2: missing DOM elements. Check ids in game2.html.");
+    return;
+  }
+
   let rows = 3;
   let cols = 4;
-
   let activeIndex = -1;
   let timerId = null;
 
@@ -23,7 +28,7 @@
     colsVal.textContent = colsRange.value;
   }
 
-  function stop() {
+  function stopTimer() {
     if (timerId !== null) {
       window.clearInterval(timerId);
       timerId = null;
@@ -35,14 +40,12 @@
   }
 
   function setDot(index) {
-    // remove old dot
     if (activeIndex >= 0) {
       const oldCell = gridEl.children[activeIndex];
       if (oldCell) oldCell.innerHTML = "";
     }
     activeIndex = index;
 
-    // add new dot
     const cell = gridEl.children[activeIndex];
     if (!cell) return;
 
@@ -74,49 +77,50 @@
       cell.type = "button";
       cell.setAttribute("aria-label", `Cell ${i + 1}`);
 
-      cell.addEventListener("click", () => {
-        // Phase 0: no win condition yet; dot just moves
-        // Next phase: clicking the NEXT cell wins
-      });
+      // Phase 0: clicking does nothing (yet)
+      cell.addEventListener("click", () => {});
 
       gridEl.appendChild(cell);
     }
   }
 
- function startGame() {
-  stop();
-  rows = parseInt(rowsRange.value, 10);
-  cols = parseInt(colsRange.value, 10);
+  function startGame() {
+    stopTimer();
 
-  activeIndex = -1;
-  buildGrid();
-  tick();
+    rows = parseInt(rowsRange.value, 10);
+    cols = parseInt(colsRange.value, 10);
 
-  timerId = window.setInterval(tick, INTERVAL_MS);
-  statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
-}
+    activeIndex = -1;
+    buildGrid();
+    tick();
 
+    timerId = window.setInterval(tick, INTERVAL_MS);
+    statusEl.textContent = `Running: ${rows}×${cols}. Dot moves every 1 second.`;
+  }
 
-  // UI wiring
+  // Wire UI
   rowsRange.addEventListener("input", updateSliderLabels);
   colsRange.addEventListener("input", updateSliderLabels);
 
-  startBtn.addEventListener("click", startgame);
+  startBtn.addEventListener("click", startGame);
 
   quitBtn.addEventListener("click", () => {
-    stop();
+    stopTimer();
     window.location.href = "../index.html";
   });
 
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stop();
+    if (document.hidden) stopTimer();
     else if (timerId === null && gridEl.children.length > 0) {
       tick();
       timerId = window.setInterval(tick, INTERVAL_MS);
     }
   });
 
-  // Initial labels + default grid preview (no movement until Start)
+  // Init
   updateSliderLabels();
-  buildGrid();
+  rows = parseInt(rowsRange.value, 10);
+  cols = parseInt(colsRange.value, 10);
+  buildGrid();                       // show a grid immediately
+  statusEl.textContent = "Ready. Press Start to begin.";
 })();
