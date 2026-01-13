@@ -21,7 +21,7 @@
     return;
   }
 
-  let rows = 3;
+  let rows = 5;
   let cols = 4;
 
   // Dot / timer
