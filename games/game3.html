@@ -5,16 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Word Chain Game</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
             background-color: #f0f0f0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #stats {
+            padding: 15px;
+            background: white;
+            border-bottom: 2px solid #333;
+            display: none;
+            text-align: center;
+            font-size: 18px;
         }
         #game-container {
+            display: none;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
             display: flex;
-            gap: 30px;
-            max-width: 1400px;
-            margin: 0 auto;
+            overflow: hidden;
         }
         #graph-area {
             flex: 1;
@@ -22,14 +40,24 @@
             border: 2px solid #333;
             border-radius: 8px;
             position: relative;
-            min-height: 600px;
+            overflow: hidden;
         }
         #letter-list {
             width: 200px;
             background: white;
             border: 2px solid #333;
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        #letter-list h3 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #letters {
+            flex: 1;
+            overflow-y: auto;
         }
         .letter-item {
             width: 50px;
@@ -39,7 +67,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 10px auto;
+            margin: 8px auto;
             cursor: grab;
             background: white;
             font-weight: bold;
@@ -79,14 +107,54 @@
             white-space: nowrap;
             display: none;
             pointer-events: none;
+            z-index: 10;
         }
         .graph-node:hover .count-display {
             display: block;
         }
-        #stats {
+        #loading {
             text-align: center;
-            margin-bottom: 20px;
-            font-size: 18px;
+            padding: 40px;
+            font-size: 20px;
+        }
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #controls {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-btn {
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .control-btn:hover {
+            background: #45a049;
+        }
+        .control-btn.reveal {
+            background: #ff9800;
+        }
+        .control-btn.reveal:hover {
+            background: #e68900;
+        }
+        .control-btn.quit {
+            background: #f44336;
+        }
+        .control-btn.quit:hover {
+            background: #da190b;
         }
         #banner {
             display: none;
@@ -102,19 +170,6 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             z-index: 1000;
         }
-        #loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 20px;
-        }
-        svg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -126,10 +181,16 @@
     <div id="game-container" style="display: none;">
         <div id="graph-area">
             <svg id="arrows"></svg>
+            <div id="nodes-container"></div>
         </div>
         <div id="letter-list">
-            <h3 style="text-align: center; margin-top: 0;">Letters</h3>
+            <h3>Letters</h3>
             <div id="letters"></div>
+            <div id="controls">
+                <button class="control-btn" onclick="nextPuzzle()">Next</button>
+                <button class="control-btn reveal" onclick="revealAll()">Reveal</button>
+                <button class="control-btn quit" onclick="quitGame()">Quit</button>
+            </div>
         </div>
     </div>
     <div id="banner"></div>
@@ -144,8 +205,8 @@
         let timerInterval = null;
         let errors = 0;
         let draggedElement = null;
+        let gameActive = false;
 
-        // Load words from file
         async function loadWords() {
             try {
                 const response = await fetch('words5.txt');
@@ -188,7 +249,6 @@
             const letterToNode = {};
             let nodeId = 0;
 
-            // Count letters and create nodes
             chain.forEach(word => {
                 word.split('').forEach(letter => {
                     letterCounts[letter] = (letterCounts[letter] || 0) + 1;
@@ -198,7 +258,6 @@
                 });
             });
 
-            // Create node objects with positions
             const uniqueLetters = Object.keys(letterToNode);
             nodes = uniqueLetters.map(letter => ({
                 id: letterToNode[letter],
@@ -209,10 +268,8 @@
                 userLetter: null
             }));
 
-            // Position nodes to minimize crossings
             positionNodes();
 
-            // Build edges
             const edges = [];
             const colors = ['green', 'blue', 'red'];
             
@@ -230,7 +287,6 @@
         }
 
         function positionNodes() {
-            const padding = 80;
             const graphArea = document.getElementById('graph-area');
             const width = graphArea.clientWidth;
             const height = graphArea.clientHeight;
@@ -243,31 +299,31 @@
                 return;
             }
 
-            // Use circular layout as base, then optimize
-            const radius = Math.min(width, height) / 3;
+            const radius = Math.min(width, height) / 2.5;
             const centerX = width / 2;
             const centerY = height / 2;
             
             nodes.forEach((node, i) => {
-                const angle = (2 * Math.PI * i) / n;
+                const angle = (2 * Math.PI * i) / n - Math.PI / 2;
                 node.x = centerX + radius * Math.cos(angle);
                 node.y = centerY + radius * Math.sin(angle);
             });
         }
 
         function drawGraph(edges) {
-            const graphArea = document.getElementById('graph-area');
+            const nodesContainer = document.getElementById('nodes-container');
+            nodesContainer.innerHTML = '';
             const svg = document.getElementById('arrows');
             svg.innerHTML = '';
+            
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            svg.appendChild(defs);
 
-            // Draw edges
             edges.forEach(edge => {
                 const fromNode = nodes.find(n => n.id === edge.from);
                 const toNode = nodes.find(n => n.id === edge.to);
                 
-                // Create arrow
-                const defs = svg.querySelector('defs') || svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'defs'));
-                const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}`;
+                const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}-${Math.random()}`;
                 
                 const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
                 marker.setAttribute('id', markerId);
@@ -276,7 +332,6 @@
                 marker.setAttribute('refX', '9');
                 marker.setAttribute('refY', '3');
                 marker.setAttribute('orient', 'auto');
-                marker.setAttribute('markerUnits', 'strokeWidth');
                 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
@@ -284,7 +339,6 @@
                 marker.appendChild(path);
                 defs.appendChild(marker);
 
-                // Calculate edge endpoints (offset from node center)
                 const dx = toNode.x - fromNode.x;
                 const dy = toNode.y - fromNode.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
@@ -307,7 +361,6 @@
                 svg.appendChild(line);
             });
 
-            // Draw nodes
             nodes.forEach(node => {
                 const nodeDiv = document.createElement('div');
                 nodeDiv.className = 'graph-node';
@@ -323,7 +376,7 @@
                 nodeDiv.addEventListener('dragover', handleDragOver);
                 nodeDiv.addEventListener('drop', handleDrop);
                 
-                graphArea.appendChild(nodeDiv);
+                nodesContainer.appendChild(nodeDiv);
             });
         }
 
@@ -352,8 +405,8 @@
                 
                 const countLabel = document.createElement('div');
                 countLabel.textContent = `(${count})`;
-                countLabel.style.fontSize = '14px';
-                countLabel.style.marginTop = '5px';
+                countLabel.style.fontSize = '12px';
+                countLabel.style.marginTop = '3px';
                 container.appendChild(countLabel);
                 
                 letterList.appendChild(container);
@@ -361,7 +414,7 @@
         }
 
         function handleDragStart(e) {
-            if (!timerStarted) {
+            if (!timerStarted && gameActive) {
                 startTimer();
             }
             draggedElement = e.target;
@@ -375,32 +428,31 @@
         }
 
         function handleDragOver(e) {
+            if (!gameActive) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
         }
 
         function handleDrop(e) {
+            if (!gameActive) return;
             e.preventDefault();
             const letter = e.dataTransfer.getData('text/plain');
             const nodeId = parseInt(e.currentTarget.dataset.nodeId);
             const node = nodes.find(n => n.id === nodeId);
             
-            if (node.userLetter) return; // Already filled
+            if (node.userLetter) return;
             
             if (node.letter === letter) {
-                // Correct!
                 node.userLetter = letter;
                 e.currentTarget.textContent = letter;
                 e.currentTarget.classList.add('filled');
                 
-                // Remove from letter list
                 if (draggedElement) {
                     draggedElement.parentElement.remove();
                 }
                 
                 checkWin();
             } else {
-                // Wrong!
                 errors++;
                 document.getElementById('errors').textContent = errors;
             }
@@ -421,6 +473,7 @@
 
         function checkWin() {
             if (nodes.every(node => node.userLetter)) {
+                gameActive = false;
                 clearInterval(timerInterval);
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
                 const minutes = Math.floor(elapsed / 60);
@@ -432,8 +485,61 @@
                     <div>Time: ${timeStr}</div>
                     <div>Errors: ${errors}</div>
                     <div style="margin-top: 20px; font-size: 18px;">Words: ${chain.join(' → ')}</div>
+                    <div style="margin-top: 20px;">
+                        <button class="control-btn" onclick="hideBanner(); nextPuzzle();" style="padding: 10px 20px;">Next Puzzle</button>
+                    </div>
                 `;
                 document.getElementById('banner').style.display = 'block';
+            }
+        }
+
+        function hideBanner() {
+            document.getElementById('banner').style.display = 'none';
+        }
+
+        function revealAll() {
+            if (!gameActive) return;
+            
+            if (!timerStarted) {
+                startTimer();
+            }
+            
+            const nodesContainer = document.getElementById('nodes-container');
+            nodes.forEach(node => {
+                if (!node.userLetter) {
+                    errors++;
+                    node.userLetter = node.letter;
+                    const nodeDiv = nodesContainer.querySelector(`[data-node-id="${node.id}"]`);
+                    if (nodeDiv) {
+                        nodeDiv.textContent = node.letter;
+                        nodeDiv.classList.add('filled');
+                    }
+                }
+            });
+            
+            document.getElementById('errors').textContent = errors;
+            document.getElementById('letters').innerHTML = '';
+            
+            checkWin();
+        }
+
+        function nextPuzzle() {
+            hideBanner();
+            gameActive = false;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            timerStarted = false;
+            errors = 0;
+            document.getElementById('timer').textContent = '0:00';
+            document.getElementById('errors').textContent = '0';
+            
+            initGame();
+        }
+
+        function quitGame() {
+            if (confirm('Are you sure you want to quit?')) {
+                window.location.href = 'index.html';
             }
         }
 
@@ -444,14 +550,17 @@
                 return;
             }
             
+            gameActive = true;
             const edges = buildGraph();
             
             document.getElementById('loading').style.display = 'none';
             document.getElementById('stats').style.display = 'block';
             document.getElementById('game-container').style.display = 'flex';
             
-            drawGraph(edges);
-            displayLetterList();
+            setTimeout(() => {
+                drawGraph(edges);
+                displayLetterList();
+            }, 100);
         }
 
         loadWords();
