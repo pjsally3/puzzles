@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Chain Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            display: flex;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        #graph-area {
+            flex: 1;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            position: relative;
+            min-height: 600px;
+        }
+        #letter-list {
+            width: 200px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .letter-item {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px auto;
+            cursor: grab;
+            background: white;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .letter-item:active {
+            cursor: grabbing;
+        }
+        .letter-item.dragging {
+            opacity: 0.5;
+        }
+        .graph-node {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #333;
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            font-weight: bold;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .graph-node.filled {
+            background: #90EE90;
+        }
+        .graph-node .count-display {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            top: -40px;
+            white-space: nowrap;
+            display: none;
+            pointer-events: none;
+        }
+        .graph-node:hover .count-display {
+            display: block;
+        }
+        #stats {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        #banner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #4CAF50;
+            color: white;
+            padding: 40px 60px;
+            border-radius: 12px;
+            font-size: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        #loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 20px;
+        }
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading word list...</div>
+    <div id="stats" style="display: none;">
+        <span>Time: <span id="timer">0:00</span></span>
+        <span style="margin-left: 30px;">Errors: <span id="errors">0</span></span>
+    </div>
+    <div id="game-container" style="display: none;">
+        <div id="graph-area">
+            <svg id="arrows"></svg>
+        </div>
+        <div id="letter-list">
+            <h3 style="text-align: center; margin-top: 0;">Letters</h3>
+            <div id="letters"></div>
+        </div>
+    </div>
+    <div id="banner"></div>
+
+    <script>
+        let words = [];
+        let chain = [];
+        let nodes = [];
+        let letterCounts = {};
+        let timerStarted = false;
+        let startTime = 0;
+        let timerInterval = null;
+        let errors = 0;
+        let draggedElement = null;
+
+        // Load words from file
+        async function loadWords() {
+            try {
+                const response = await fetch('words5.txt');
+                const text = await response.text();
+                words = text.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5);
+                if (words.length === 0) {
+                    document.getElementById('loading').textContent = 'Error: No valid words found';
+                    return;
+                }
+                initGame();
+            } catch (error) {
+                document.getElementById('loading').textContent = 'Error loading words: ' + error.message;
+            }
+        }
+
+        function findWordChain() {
+            const maxAttempts = 1000;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const word1 = words[Math.floor(Math.random() * words.length)];
+                const lastLetter1 = word1[4];
+                
+                const word2Candidates = words.filter(w => w[0] === lastLetter1);
+                if (word2Candidates.length === 0) continue;
+                
+                const word2 = word2Candidates[Math.floor(Math.random() * word2Candidates.length)];
+                const lastLetter2 = word2[4];
+                
+                const word3Candidates = words.filter(w => w[0] === lastLetter2);
+                if (word3Candidates.length === 0) continue;
+                
+                const word3 = word3Candidates[Math.floor(Math.random() * word3Candidates.length)];
+                
+                return [word1, word2, word3];
+            }
+            return null;
+        }
+
+        function buildGraph() {
+            letterCounts = {};
+            const letterToNode = {};
+            let nodeId = 0;
+
+            // Count letters and create nodes
+            chain.forEach(word => {
+                word.split('').forEach(letter => {
+                    letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+                    if (!letterToNode[letter]) {
+                        letterToNode[letter] = nodeId++;
+                    }
+                });
+            });
+
+            // Create node objects with positions
+            const uniqueLetters = Object.keys(letterToNode);
+            nodes = uniqueLetters.map(letter => ({
+                id: letterToNode[letter],
+                letter: letter,
+                count: letterCounts[letter],
+                x: 0,
+                y: 0,
+                userLetter: null
+            }));
+
+            // Position nodes to minimize crossings
+            positionNodes();
+
+            // Build edges
+            const edges = [];
+            const colors = ['green', 'blue', 'red'];
+            
+            chain.forEach((word, wordIndex) => {
+                for (let i = 0; i < word.length - 1; i++) {
+                    edges.push({
+                        from: letterToNode[word[i]],
+                        to: letterToNode[word[i + 1]],
+                        color: colors[wordIndex]
+                    });
+                }
+            });
+
+            return edges;
+        }
+
+        function positionNodes() {
+            const padding = 80;
+            const graphArea = document.getElementById('graph-area');
+            const width = graphArea.clientWidth;
+            const height = graphArea.clientHeight;
+            
+            const n = nodes.length;
+            
+            if (n === 1) {
+                nodes[0].x = width / 2;
+                nodes[0].y = height / 2;
+                return;
+            }
+
+            // Use circular layout as base, then optimize
+            const radius = Math.min(width, height) / 3;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            nodes.forEach((node, i) => {
+                const angle = (2 * Math.PI * i) / n;
+                node.x = centerX + radius * Math.cos(angle);
+                node.y = centerY + radius * Math.sin(angle);
+            });
+        }
+
+        function drawGraph(edges) {
+            const graphArea = document.getElementById('graph-area');
+            const svg = document.getElementById('arrows');
+            svg.innerHTML = '';
+
+            // Draw edges
+            edges.forEach(edge => {
+                const fromNode = nodes.find(n => n.id === edge.from);
+                const toNode = nodes.find(n => n.id === edge.to);
+                
+                // Create arrow
+                const defs = svg.querySelector('defs') || svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'defs'));
+                const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}`;
+                
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                marker.setAttribute('id', markerId);
+                marker.setAttribute('markerWidth', '10');
+                marker.setAttribute('markerHeight', '10');
+                marker.setAttribute('refX', '9');
+                marker.setAttribute('refY', '3');
+                marker.setAttribute('orient', 'auto');
+                marker.setAttribute('markerUnits', 'strokeWidth');
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
+                path.setAttribute('fill', edge.color);
+                marker.appendChild(path);
+                defs.appendChild(marker);
+
+                // Calculate edge endpoints (offset from node center)
+                const dx = toNode.x - fromNode.x;
+                const dy = toNode.y - fromNode.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const offsetFrom = 35;
+                const offsetTo = 35;
+                
+                const x1 = fromNode.x + (dx / dist) * offsetFrom;
+                const y1 = fromNode.y + (dy / dist) * offsetFrom;
+                const x2 = toNode.x - (dx / dist) * offsetTo;
+                const y2 = toNode.y - (dy / dist) * offsetTo;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', edge.color);
+                line.setAttribute('stroke-width', '3');
+                line.setAttribute('marker-end', `url(#${markerId})`);
+                svg.appendChild(line);
+            });
+
+            // Draw nodes
+            nodes.forEach(node => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = 'graph-node';
+                nodeDiv.style.left = (node.x - 30) + 'px';
+                nodeDiv.style.top = (node.y - 30) + 'px';
+                nodeDiv.dataset.nodeId = node.id;
+                
+                const countDisplay = document.createElement('div');
+                countDisplay.className = 'count-display';
+                countDisplay.textContent = `Used ${node.count} time${node.count > 1 ? 's' : ''}`;
+                nodeDiv.appendChild(countDisplay);
+
+                nodeDiv.addEventListener('dragover', handleDragOver);
+                nodeDiv.addEventListener('drop', handleDrop);
+                
+                graphArea.appendChild(nodeDiv);
+            });
+        }
+
+        function displayLetterList() {
+            const letterList = document.getElementById('letters');
+            letterList.innerHTML = '';
+            
+            const sortedLetters = Object.keys(letterCounts).sort();
+            
+            sortedLetters.forEach(letter => {
+                const count = letterCounts[letter];
+                const container = document.createElement('div');
+                container.style.textAlign = 'center';
+                container.style.marginBottom = '5px';
+                
+                const letterDiv = document.createElement('div');
+                letterDiv.className = 'letter-item';
+                letterDiv.textContent = letter;
+                letterDiv.draggable = true;
+                letterDiv.dataset.letter = letter;
+                
+                letterDiv.addEventListener('dragstart', handleDragStart);
+                letterDiv.addEventListener('dragend', handleDragEnd);
+                
+                container.appendChild(letterDiv);
+                
+                const countLabel = document.createElement('div');
+                countLabel.textContent = `(${count})`;
+                countLabel.style.fontSize = '14px';
+                countLabel.style.marginTop = '5px';
+                container.appendChild(countLabel);
+                
+                letterList.appendChild(container);
+            });
+        }
+
+        function handleDragStart(e) {
+            if (!timerStarted) {
+                startTimer();
+            }
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.dataset.letter);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const letter = e.dataTransfer.getData('text/plain');
+            const nodeId = parseInt(e.currentTarget.dataset.nodeId);
+            const node = nodes.find(n => n.id === nodeId);
+            
+            if (node.userLetter) return; // Already filled
+            
+            if (node.letter === letter) {
+                // Correct!
+                node.userLetter = letter;
+                e.currentTarget.textContent = letter;
+                e.currentTarget.classList.add('filled');
+                
+                // Remove from letter list
+                if (draggedElement) {
+                    draggedElement.parentElement.remove();
+                }
+                
+                checkWin();
+            } else {
+                // Wrong!
+                errors++;
+                document.getElementById('errors').textContent = errors;
+            }
+        }
+
+        function startTimer() {
+            timerStarted = true;
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function checkWin() {
+            if (nodes.every(node => node.userLetter)) {
+                clearInterval(timerInterval);
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                document.getElementById('banner').innerHTML = `
+                    <div style="font-size: 32px; margin-bottom: 20px;">🎉 Congratulations! 🎉</div>
+                    <div>Time: ${timeStr}</div>
+                    <div>Errors: ${errors}</div>
+                    <div style="margin-top: 20px; font-size: 18px;">Words: ${chain.join(' → ')}</div>
+                `;
+                document.getElementById('banner').style.display = 'block';
+            }
+        }
+
+        function initGame() {
+            chain = findWordChain();
+            if (!chain) {
+                document.getElementById('loading').textContent = 'Error: Could not generate word chain';
+                return;
+            }
+            
+            const edges = buildGraph();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('stats').style.display = 'block';
+            document.getElementById('game-container').style.display = 'flex';
+            
+            drawGraph(edges);
+            displayLetterList();
+        }
+
+        loadWords();
+    </script>
+</body>
+</html>
