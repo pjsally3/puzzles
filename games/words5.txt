@@ -235,8 +235,6 @@ blurt
 blush
 board
 boast
-bobby
-boney
 bongo
 bonus
 booby
@@ -828,7 +826,6 @@ furry
 fussy
 fuzzy
 gaffe
-gaily
 gamer
 gamma
 gamut
@@ -840,7 +837,6 @@ gauze
 gavel
 gawky
 gayer
-gayly
 gazer
 gecko
 geeky
@@ -950,7 +946,6 @@ happy
 hardy
 harem
 harpy
-harry
 harsh
 haste
 hasty
@@ -1185,8 +1180,6 @@ major
 maker
 mambo
 mamma
-mammy
-manga
 mange
 mango
 mangy
@@ -1647,7 +1640,6 @@ saucy
 sauna
 saute
 savor
-savoy
 savvy
 scald
 scale
