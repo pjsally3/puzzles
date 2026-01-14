@@ -90,12 +90,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 8px;
-            gap: 8px;
+            margin-bottom: 4px;
+            gap: 6px;
         }
         .letter-item {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border: 2px solid #333;
             border-radius: 50%;
             display: flex;
@@ -104,7 +104,7 @@
             cursor: grab;
             background: white;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 15px;
             flex-shrink: 0;
         }
         .letter-item:active {
@@ -114,9 +114,9 @@
             opacity: 0.5;
         }
         .letter-count {
-            font-size: 14px;
+            font-size: 12px;
             color: #666;
-            min-width: 25px;
+            min-width: 22px;
         }
         .graph-node {
             width: 45px;
@@ -327,13 +327,21 @@
 
             const edges = [];
             const colors = ['green', 'blue', 'red'];
+            const edgeCounts = {}; // Track multiple edges between same nodes
             
             chain.forEach((word, wordIndex) => {
                 for (let i = 0; i < word.length - 1; i++) {
+                    const fromId = letterToNode[word[i]];
+                    const toId = letterToNode[word[i + 1]];
+                    const edgeKey = `${fromId}-${toId}`;
+                    
+                    edgeCounts[edgeKey] = (edgeCounts[edgeKey] || 0) + 1;
+                    
                     edges.push({
-                        from: letterToNode[word[i]],
-                        to: letterToNode[word[i + 1]],
-                        color: colors[wordIndex]
+                        from: fromId,
+                        to: toId,
+                        color: colors[wordIndex],
+                        edgeIndex: edgeCounts[edgeKey] - 1 // 0 for first edge, 1 for second, etc.
                     });
                 }
             });
@@ -465,7 +473,7 @@
                     loopPath.setAttribute('marker-end', `url(#${markerId})`);
                     svg.appendChild(loopPath);
                 } else {
-                    // Regular edge
+                    // Regular edge - calculate curve for multiple edges
                     const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}-${Math.random()}`;
                     
                     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -493,15 +501,37 @@
                     const x2 = toNode.x - (dx / dist) * offsetTo;
                     const y2 = toNode.y - (dy / dist) * offsetTo;
 
-                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line.setAttribute('x1', x1);
-                    line.setAttribute('y1', y1);
-                    line.setAttribute('x2', x2);
-                    line.setAttribute('y2', y2);
-                    line.setAttribute('stroke', edge.color);
-                    line.setAttribute('stroke-width', '3');
-                    line.setAttribute('marker-end', `url(#${markerId})`);
-                    svg.appendChild(line);
+                    // For multiple edges, curve them
+                    if (edge.edgeIndex === 0) {
+                        // First edge is straight
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', x1);
+                        line.setAttribute('y1', y1);
+                        line.setAttribute('x2', x2);
+                        line.setAttribute('y2', y2);
+                        line.setAttribute('stroke', edge.color);
+                        line.setAttribute('stroke-width', '3');
+                        line.setAttribute('marker-end', `url(#${markerId})`);
+                        svg.appendChild(line);
+                    } else {
+                        // Subsequent edges are curved
+                        const curvePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        
+                        // Calculate perpendicular offset for curve
+                        const perpX = -dy / dist;
+                        const perpY = dx / dist;
+                        const curveOffset = edge.edgeIndex * 20 * (edge.edgeIndex % 2 === 1 ? 1 : -1);
+                        
+                        const midX = (x1 + x2) / 2 + perpX * curveOffset;
+                        const midY = (y1 + y2) / 2 + perpY * curveOffset;
+                        
+                        curvePath.setAttribute('d', `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`);
+                        curvePath.setAttribute('stroke', edge.color);
+                        curvePath.setAttribute('stroke-width', '3');
+                        curvePath.setAttribute('fill', 'none');
+                        curvePath.setAttribute('marker-end', `url(#${markerId})`);
+                        svg.appendChild(curvePath);
+                    }
                 }
             });
 
@@ -618,6 +648,26 @@
             if (!gameActive) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
+            
+            // Highlight word positions when dragging over
+            const nodeId = parseInt(e.currentTarget.dataset.nodeId);
+            const node = nodes.find(n => n.id === nodeId);
+            if (node) {
+                const positions = letterPositions[node.letter];
+                
+                document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
+                
+                if (positions) {
+                    positions.forEach(pos => {
+                        const letterSpan = document.querySelector(
+                            `.word-letter[data-word-idx="${pos.wordIdx}"][data-letter-idx="${pos.letterIdx}"]`
+                        );
+                        if (letterSpan) {
+                            letterSpan.classList.add('highlight');
+                        }
+                    });
+                }
+            }
         }
 
         function handleDrop(e) {
@@ -731,7 +781,7 @@
 
         function quitGame() {
             if (confirm('Are you sure you want to quit?')) {
-                window.location.href = 'index.html';
+                window.location.href = '../index.html';
             }
         }
 
