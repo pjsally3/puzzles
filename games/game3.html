@@ -53,11 +53,11 @@
             background: #ffeb3b;
         }
         #game-container {
-            display: none;
             flex: 1;
             padding: 20px;
             gap: 20px;
-            display: flex;
+            display: none;
+            flex-direction: row;
             overflow: hidden;
         }
         #graph-area {
@@ -227,12 +227,12 @@
 </head>
 <body>
     <div id="loading">Loading word list...</div>
-    <div id="stats" style="display: none;">
+    <div id="stats">
         <span>Time: <span id="timer">0:00</span></span>
         <span style="margin-left: 30px;">Errors: <span id="errors">0</span></span>
     </div>
-    <div id="words-display" style="display: none;"></div>
-    <div id="game-container" style="display: none;">
+    <div id="words-display"></div>
+    <div id="game-container">
         <div id="graph-area">
             <svg id="arrows"></svg>
             <div id="nodes-container"></div>
@@ -348,7 +348,7 @@
                 for (let i = 0; i < word.length - 1; i++) {
                     const fromId = letterToNode[word[i]];
                     const toId = letterToNode[word[i + 1]];
-                    const edgeKey = `${fromId}-${toId}`;
+                    const edgeKey = fromId + '-' + toId;
                     
                     edgeCounts[edgeKey] = (edgeCounts[edgeKey] || 0) + 1;
                     
@@ -396,7 +396,6 @@
             chain.forEach((word, wordIdx) => {
                 const container = document.createElement('div');
                 container.className = 'word-container';
-                container.dataset.wordIdx = wordIdx;
                 
                 for (let i = 0; i < 5; i++) {
                     const letterSpan = document.createElement('span');
@@ -417,9 +416,8 @@
         function updateWordDisplay(letter) {
             const positions = letterPositions[letter];
             positions.forEach(pos => {
-                const letterSpan = document.querySelector(
-                    `.word-letter[data-word-idx="${pos.wordIdx}"][data-letter-idx="${pos.letterIdx}"]`
-                );
+                const selector = '.word-letter[data-word-idx="' + pos.wordIdx + '"][data-letter-idx="' + pos.letterIdx + '"]';
+                const letterSpan = document.querySelector(selector);
                 if (letterSpan) {
                     letterSpan.textContent = letter;
                 }
@@ -447,7 +445,7 @@
                 const toNode = nodes.find(n => n.id === edge.to);
                 
                 if (edge.from === edge.to) {
-                    const markerId = `arrow-${edge.color}-loop-${edge.from}-${Math.random()}`;
+                    const markerId = 'arrow-' + edge.color + '-loop-' + edge.from + '-' + Math.random();
                     
                     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
                     marker.setAttribute('id', markerId);
@@ -471,17 +469,15 @@
                     const endX = fromNode.x + 15;
                     const endY = fromNode.y - 22.5;
                     
-                    loopPath.setAttribute('d', 
-                        `M ${startX} ${startY} 
-                         A ${loopRadius} ${loopRadius} 0 1 1 ${endX} ${endY}`
-                    );
+                    const pathD = 'M ' + startX + ' ' + startY + ' A ' + loopRadius + ' ' + loopRadius + ' 0 1 1 ' + endX + ' ' + endY;
+                    loopPath.setAttribute('d', pathD);
                     loopPath.setAttribute('stroke', edge.color);
                     loopPath.setAttribute('stroke-width', '3');
                     loopPath.setAttribute('fill', 'none');
-                    loopPath.setAttribute('marker-end', `url(#${markerId})`);
+                    loopPath.setAttribute('marker-end', 'url(#' + markerId + ')');
                     svg.appendChild(loopPath);
                 } else {
-                    const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}-${Math.random()}`;
+                    const markerId = 'arrow-' + edge.color + '-' + edge.from + '-' + edge.to + '-' + Math.random();
                     
                     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
                     marker.setAttribute('id', markerId);
@@ -516,7 +512,7 @@
                         line.setAttribute('y2', y2);
                         line.setAttribute('stroke', edge.color);
                         line.setAttribute('stroke-width', '3');
-                        line.setAttribute('marker-end', `url(#${markerId})`);
+                        line.setAttribute('marker-end', 'url(#' + markerId + ')');
                         svg.appendChild(line);
                     } else {
                         const curvePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -528,11 +524,12 @@
                         const midX = (x1 + x2) / 2 + perpX * curveOffset;
                         const midY = (y1 + y2) / 2 + perpY * curveOffset;
                         
-                        curvePath.setAttribute('d', `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`);
+                        const pathD = 'M ' + x1 + ' ' + y1 + ' Q ' + midX + ' ' + midY + ' ' + x2 + ' ' + y2;
+                        curvePath.setAttribute('d', pathD);
                         curvePath.setAttribute('stroke', edge.color);
                         curvePath.setAttribute('stroke-width', '3');
                         curvePath.setAttribute('fill', 'none');
-                        curvePath.setAttribute('marker-end', `url(#${markerId})`);
+                        curvePath.setAttribute('marker-end', 'url(#' + markerId + ')');
                         svg.appendChild(curvePath);
                     }
                 }
@@ -548,7 +545,7 @@
                 
                 const countDisplay = document.createElement('div');
                 countDisplay.className = 'count-display';
-                countDisplay.textContent = `Used ${node.count} time${node.count > 1 ? 's' : ''}`;
+                countDisplay.textContent = 'Used ' + node.count + ' time' + (node.count > 1 ? 's' : '');
                 nodeDiv.appendChild(countDisplay);
 
                 nodeDiv.addEventListener('dragover', handleDragOver);
@@ -616,7 +613,7 @@
                 
                 const countLabel = document.createElement('div');
                 countLabel.className = 'letter-count';
-                countLabel.textContent = `(${count})`;
+                countLabel.textContent = '(' + count + ')';
                 
                 container.appendChild(letterDiv);
                 container.appendChild(countLabel);
@@ -694,7 +691,7 @@
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timer').textContent = minutes + ':' + seconds.toString().padStart(2, '0');
         }
 
         function calculateDifficulty() {
@@ -713,7 +710,7 @@
                 else fourPlus++;
             });
             
-            const key = `${singles},${doubles},${triples},${fourPlus}`;
+            const key = singles + ',' + doubles + ',' + triples + ',' + fourPlus;
             let baseDifficulty = difficultyChart[key] || 1.5;
             
             const rareLetters = ['X', 'Z', 'J', 'Q'];
@@ -760,23 +757,102 @@
                 const difficultyInfo = calculateDifficulty();
                 const score = calculateScore(elapsed, errors, difficultyInfo);
                 
-                let bannerHTML = '<div style="font-size: 32px; margin-bottom: 20px;">Congratulations!</div>';
-                bannerHTML += '<div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ' + score + '</strong></div>';
-                bannerHTML += '<div>Time: ' + timeStr + '</div>';
-                bannerHTML += '<div>Errors: ' + errors + '</div>';
-                bannerHTML += '<div style="margin-top: 15px; font-size: 16px;">';
-                bannerHTML += 'Difficulty: ' + difficultyInfo.difficulty.toFixed(2) + 'x ';
-                bannerHTML += '(' + difficultyInfo.singles + 's, ' + difficultyInfo.doubles + 'd, ' + difficultyInfo.triples + 't, ' + difficultyInfo.fourPlus + 'x4+)';
+                let html = '<div style="font-size: 32px; margin-bottom: 20px;">Congratulations!</div>';
+                html += '<div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ' + score + '</strong></div>';
+                html += '<div>Time: ' + timeStr + '</div>';
+                html += '<div>Errors: ' + errors + '</div>';
+                html += '<div style="margin-top: 15px; font-size: 16px;">';
+                html += 'Difficulty: ' + difficultyInfo.difficulty.toFixed(2) + 'x ';
+                html += '(' + difficultyInfo.singles + 's, ' + difficultyInfo.doubles + 'd, ' + difficultyInfo.triples + 't, ' + difficultyInfo.fourPlus + 'x4+)';
                 if (difficultyInfo.rareLetters > 0) {
-                    bannerHTML += '<br>Rare letters: -' + (difficultyInfo.rareLetters * 0.1).toFixed(1);
+                    html += '<br>Rare letters: -' + (difficultyInfo.rareLetters * 0.1).toFixed(1);
                 }
-                bannerHTML += '</div>';
-                bannerHTML += '<div style="margin-top: 20px; font-size: 18px;">Words: ' + chain.join(' - ') + '</div>';
-                bannerHTML += '<div style="margin-top: 20px;">';
-                bannerHTML += '<button class="control-btn" onclick="hideBanner(); nextPuzzle();" style="padding: 10px 20px;">Next Puzzle</button>';
-                bannerHTML += '</div>';
+                html += '</div>';
+                html += '<div style="margin-top: 20px; font-size: 18px;">Words: ' + chain.join(' - ') + '</div>';
+                html += '<div style="margin-top: 20px;">';
+                html += '<button class="control-btn" onclick="hideBanner(); nextPuzzle();" style="padding: 10px 20px;">Next Puzzle</button>';
+                html += '</div>';
                 
-                document.getElementById('banner').innerHTML = bannerHTML;
+                document.getElementById('banner').innerHTML = html;
                 document.getElementById('banner').style.display = 'block';
             }
         }
+
+        function hideBanner() {
+            document.getElementById('banner').style.display = 'none';
+        }
+
+        function revealAll() {
+            if (!gameActive) return;
+            
+            if (!timerStarted) {
+                startTimer();
+            }
+            
+            const nodesContainer = document.getElementById('nodes-container');
+            nodes.forEach(node => {
+                if (!node.userLetter) {
+                    errors++;
+                    node.userLetter = node.letter;
+                    const selector = '[data-node-id="' + node.id + '"]';
+                    const nodeDiv = nodesContainer.querySelector(selector);
+                    if (nodeDiv) {
+                        nodeDiv.textContent = node.letter;
+                        nodeDiv.classList.add('filled');
+                    }
+                    updateWordDisplay(node.letter);
+                }
+            });
+            
+            document.getElementById('errors').textContent = errors;
+            document.getElementById('letters').innerHTML = '';
+            
+            checkWin();
+        }
+
+        function nextPuzzle() {
+            hideBanner();
+            gameActive = false;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            timerStarted = false;
+            errors = 0;
+            document.getElementById('timer').textContent = '0:00';
+            document.getElementById('errors').textContent = '0';
+            
+            initGame();
+        }
+
+        function quitGame() {
+            if (confirm('Are you sure you want to quit?')) {
+                window.location.href = '../index.html';
+            }
+        }
+
+        function initGame() {
+            chain = findWordChain();
+            if (!chain) {
+                document.getElementById('loading').textContent = 'Error: Could not generate word chain';
+                return;
+            }
+            
+            gameActive = true;
+            const edges = buildGraph();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('stats').style.display = 'block';
+            document.getElementById('game-container').style.display = 'flex';
+            
+            displayWords();
+            
+            setTimeout(function() {
+                drawGraph(edges);
+                displayLetterList();
+            }, 100);
+        }
+
+        loadWords();
+    </script>
+</body>
+</html>
