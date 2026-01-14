@@ -26,6 +26,32 @@
             text-align: center;
             font-size: 18px;
         }
+        #words-display {
+            padding: 15px;
+            background: white;
+            border-bottom: 2px solid #333;
+            display: none;
+            text-align: center;
+            font-size: 24px;
+            font-family: monospace;
+        }
+        .word-container {
+            display: inline-block;
+            margin: 0 15px;
+        }
+        .word-letter {
+            display: inline-block;
+            width: 30px;
+            height: 40px;
+            margin: 0 2px;
+            border-bottom: 3px solid;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+        }
+        .word-letter.highlight {
+            background: #ffeb3b;
+        }
         #game-container {
             display: none;
             flex: 1;
@@ -43,7 +69,7 @@
             overflow: hidden;
         }
         #letter-list {
-            width: 200px;
+            width: 180px;
             background: white;
             border: 2px solid #333;
             border-radius: 8px;
@@ -58,26 +84,39 @@
         #letters {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .letter-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            gap: 8px;
         }
         .letter-item {
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             border: 2px solid #333;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 8px auto;
             cursor: grab;
             background: white;
             font-weight: bold;
-            font-size: 20px;
+            font-size: 18px;
+            flex-shrink: 0;
         }
         .letter-item:active {
             cursor: grabbing;
         }
         .letter-item.dragging {
             opacity: 0.5;
+        }
+        .letter-count {
+            font-size: 14px;
+            color: #666;
+            min-width: 25px;
         }
         .graph-node {
             width: 60px;
@@ -178,6 +217,7 @@
         <span>Time: <span id="timer">0:00</span></span>
         <span style="margin-left: 30px;">Errors: <span id="errors">0</span></span>
     </div>
+    <div id="words-display" style="display: none;"></div>
     <div id="game-container" style="display: none;">
         <div id="graph-area">
             <svg id="arrows"></svg>
@@ -206,6 +246,7 @@
         let errors = 0;
         let draggedElement = null;
         let gameActive = false;
+        let letterPositions = {}; // Maps letter to positions in words
 
         async function loadWords() {
             try {
@@ -246,15 +287,18 @@
 
         function buildGraph() {
             letterCounts = {};
+            letterPositions = {};
             const letterToNode = {};
             let nodeId = 0;
 
-            chain.forEach(word => {
-                word.split('').forEach(letter => {
+            chain.forEach((word, wordIdx) => {
+                word.split('').forEach((letter, letterIdx) => {
                     letterCounts[letter] = (letterCounts[letter] || 0) + 1;
                     if (!letterToNode[letter]) {
                         letterToNode[letter] = nodeId++;
+                        letterPositions[letter] = [];
                     }
+                    letterPositions[letter].push({ wordIdx, letterIdx });
                 });
             });
 
@@ -288,8 +332,8 @@
 
         function positionNodes() {
             const graphArea = document.getElementById('graph-area');
-            const width = graphArea.clientWidth;
-            const height = graphArea.clientHeight;
+            const width = graphArea.clientWidth || 800;
+            const height = graphArea.clientHeight || 600;
             
             const n = nodes.length;
             
@@ -307,6 +351,43 @@
                 const angle = (2 * Math.PI * i) / n - Math.PI / 2;
                 node.x = centerX + radius * Math.cos(angle);
                 node.y = centerY + radius * Math.sin(angle);
+            });
+        }
+
+        function displayWords() {
+            const wordsDisplay = document.getElementById('words-display');
+            wordsDisplay.innerHTML = '';
+            const colors = ['green', 'blue', 'red'];
+            
+            chain.forEach((word, wordIdx) => {
+                const container = document.createElement('div');
+                container.className = 'word-container';
+                container.dataset.wordIdx = wordIdx;
+                
+                for (let i = 0; i < 5; i++) {
+                    const letterSpan = document.createElement('span');
+                    letterSpan.className = 'word-letter';
+                    letterSpan.style.borderColor = colors[wordIdx];
+                    letterSpan.dataset.wordIdx = wordIdx;
+                    letterSpan.dataset.letterIdx = i;
+                    container.appendChild(letterSpan);
+                }
+                
+                wordsDisplay.appendChild(container);
+            });
+            
+            wordsDisplay.style.display = 'block';
+        }
+
+        function updateWordDisplay(letter) {
+            const positions = letterPositions[letter];
+            positions.forEach(pos => {
+                const letterSpan = document.querySelector(
+                    `.word-letter[data-word-idx="${pos.wordIdx}"][data-letter-idx="${pos.letterIdx}"]`
+                );
+                if (letterSpan) {
+                    letterSpan.textContent = letter;
+                }
             });
         }
 
@@ -367,6 +448,7 @@
                 nodeDiv.style.left = (node.x - 30) + 'px';
                 nodeDiv.style.top = (node.y - 30) + 'px';
                 nodeDiv.dataset.nodeId = node.id;
+                nodeDiv.dataset.letter = node.letter;
                 
                 const countDisplay = document.createElement('div');
                 countDisplay.className = 'count-display';
@@ -375,9 +457,33 @@
 
                 nodeDiv.addEventListener('dragover', handleDragOver);
                 nodeDiv.addEventListener('drop', handleDrop);
+                nodeDiv.addEventListener('mouseenter', highlightWordPositions);
+                nodeDiv.addEventListener('mouseleave', clearHighlight);
                 
                 nodesContainer.appendChild(nodeDiv);
             });
+        }
+
+        function highlightWordPositions(e) {
+            const letter = e.currentTarget.dataset.letter;
+            const positions = letterPositions[letter];
+            
+            document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
+            
+            if (positions) {
+                positions.forEach(pos => {
+                    const letterSpan = document.querySelector(
+                        `.word-letter[data-word-idx="${pos.wordIdx}"][data-letter-idx="${pos.letterIdx}"]`
+                    );
+                    if (letterSpan) {
+                        letterSpan.classList.add('highlight');
+                    }
+                });
+            }
+        }
+
+        function clearHighlight() {
+            document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
         }
 
         function displayLetterList() {
@@ -389,8 +495,7 @@
             sortedLetters.forEach(letter => {
                 const count = letterCounts[letter];
                 const container = document.createElement('div');
-                container.style.textAlign = 'center';
-                container.style.marginBottom = '5px';
+                container.className = 'letter-container';
                 
                 const letterDiv = document.createElement('div');
                 letterDiv.className = 'letter-item';
@@ -401,12 +506,11 @@
                 letterDiv.addEventListener('dragstart', handleDragStart);
                 letterDiv.addEventListener('dragend', handleDragEnd);
                 
-                container.appendChild(letterDiv);
-                
                 const countLabel = document.createElement('div');
+                countLabel.className = 'letter-count';
                 countLabel.textContent = `(${count})`;
-                countLabel.style.fontSize = '12px';
-                countLabel.style.marginTop = '3px';
+                
+                container.appendChild(letterDiv);
                 container.appendChild(countLabel);
                 
                 letterList.appendChild(container);
@@ -446,6 +550,8 @@
                 node.userLetter = letter;
                 e.currentTarget.textContent = letter;
                 e.currentTarget.classList.add('filled');
+                
+                updateWordDisplay(letter);
                 
                 if (draggedElement) {
                     draggedElement.parentElement.remove();
@@ -514,6 +620,7 @@
                         nodeDiv.textContent = node.letter;
                         nodeDiv.classList.add('filled');
                     }
+                    updateWordDisplay(node.letter);
                 }
             });
             
@@ -556,6 +663,8 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('stats').style.display = 'block';
             document.getElementById('game-container').style.display = 'flex';
+            
+            displayWords();
             
             setTimeout(() => {
                 drawGraph(edges);
