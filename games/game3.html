@@ -260,9 +260,8 @@
         let errors = 0;
         let draggedElement = null;
         let gameActive = false;
-        let letterPositions = {}; // Maps letter to positions in words
+        let letterPositions = {};
         
-        // Difficulty chart based on letter frequency distribution
         const difficultyChart = {
             '11,2,0,0': 1.9, '9,3,0,0': 1.95, '7,4,0,0': 1.98, '5,5,0,0': 2.0,
             '3,6,0,0': 2.0, '1,7,0,0': 1.8, '8,2,1,0': 1.7, '6,3,1,0': 1.75,
@@ -343,7 +342,7 @@
 
             const edges = [];
             const colors = ['green', 'blue', 'red'];
-            const edgeCounts = {}; // Track multiple edges between same nodes
+            const edgeCounts = {};
             
             chain.forEach((word, wordIndex) => {
                 for (let i = 0; i < word.length - 1; i++) {
@@ -357,7 +356,7 @@
                         from: fromId,
                         to: toId,
                         color: colors[wordIndex],
-                        edgeIndex: edgeCounts[edgeKey] - 1 // 0 for first edge, 1 for second, etc.
+                        edgeIndex: edgeCounts[edgeKey] - 1
                     });
                 }
             });
@@ -405,7 +404,7 @@
                     letterSpan.style.borderColor = colors[wordIdx];
                     letterSpan.dataset.wordIdx = wordIdx;
                     letterSpan.dataset.letterIdx = i;
-                    letterSpan.dataset.letter = word[i]; // Store the actual letter
+                    letterSpan.dataset.letter = word[i];
                     container.appendChild(letterSpan);
                 }
                 
@@ -436,7 +435,6 @@
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
             svg.appendChild(defs);
 
-            // Find start and end nodes
             const letterToNode = {};
             nodes.forEach(node => {
                 letterToNode[node.letter] = node.id;
@@ -448,9 +446,7 @@
                 const fromNode = nodes.find(n => n.id === edge.from);
                 const toNode = nodes.find(n => n.id === edge.to);
                 
-                // Check if it's a self-loop
                 if (edge.from === edge.to) {
-                    // Draw a loop outside the circle
                     const markerId = `arrow-${edge.color}-loop-${edge.from}-${Math.random()}`;
                     
                     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -467,14 +463,9 @@
                     marker.appendChild(path);
                     defs.appendChild(marker);
 
-                    // Create a circular path above the node
                     const loopRadius = 25;
                     const loopPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     
-                    // Calculate the center of the loop (above the node)
-                    const loopCenterY = fromNode.y - 25;
-                    
-                    // Create arc path starting and ending at top of node
                     const startX = fromNode.x - 15;
                     const startY = fromNode.y - 22.5;
                     const endX = fromNode.x + 15;
@@ -490,7 +481,6 @@
                     loopPath.setAttribute('marker-end', `url(#${markerId})`);
                     svg.appendChild(loopPath);
                 } else {
-                    // Regular edge - calculate curve for multiple edges
                     const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}-${Math.random()}`;
                     
                     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -518,9 +508,7 @@
                     const x2 = toNode.x - (dx / dist) * offsetTo;
                     const y2 = toNode.y - (dy / dist) * offsetTo;
 
-                    // For multiple edges, curve them
                     if (edge.edgeIndex === 0) {
-                        // First edge is straight
                         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                         line.setAttribute('x1', x1);
                         line.setAttribute('y1', y1);
@@ -531,10 +519,8 @@
                         line.setAttribute('marker-end', `url(#${markerId})`);
                         svg.appendChild(line);
                     } else {
-                        // Subsequent edges are curved
                         const curvePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                         
-                        // Calculate perpendicular offset for curve
                         const perpX = -dy / dist;
                         const perpY = dx / dist;
                         const curveOffset = edge.edgeIndex * 20 * (edge.edgeIndex % 2 === 1 ? 1 : -1);
@@ -572,7 +558,6 @@
                 
                 nodesContainer.appendChild(nodeDiv);
 
-                // Add Start label
                 if (node.id === startNodeId) {
                     const startLabel = document.createElement('div');
                     startLabel.className = 'node-label';
@@ -582,7 +567,6 @@
                     nodesContainer.appendChild(startLabel);
                 }
 
-                // Add Stop label
                 if (node.id === endNodeId) {
                     const stopLabel = document.createElement('div');
                     stopLabel.className = 'node-label';
@@ -599,7 +583,6 @@
             
             document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
             
-            // Highlight all positions where this letter appears
             document.querySelectorAll('.word-letter').forEach(el => {
                 if (el.dataset.letter === letter) {
                     el.classList.add('highlight');
@@ -661,13 +644,11 @@
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             
-            // Highlight word positions when dragging over
             const nodeId = parseInt(e.currentTarget.dataset.nodeId);
             const node = nodes.find(n => n.id === nodeId);
             if (node) {
                 document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
                 
-                // Highlight all positions where this letter appears
                 document.querySelectorAll('.word-letter').forEach(el => {
                     if (el.dataset.letter === node.letter) {
                         el.classList.add('highlight');
@@ -717,7 +698,6 @@
         }
 
         function calculateDifficulty() {
-            // Count letter frequencies
             const letterFreq = {};
             chain.forEach(word => {
                 word.split('').forEach(letter => {
@@ -725,7 +705,6 @@
                 });
             });
             
-            // Count singles, doubles, triples, 4+
             let singles = 0, doubles = 0, triples = 0, fourPlus = 0;
             Object.values(letterFreq).forEach(count => {
                 if (count === 1) singles++;
@@ -734,11 +713,9 @@
                 else fourPlus++;
             });
             
-            // Get base difficulty from chart
             const key = `${singles},${doubles},${triples},${fourPlus}`;
-            let baseDifficulty = difficultyChart[key] || 1.5; // default if not in chart
+            let baseDifficulty = difficultyChart[key] || 1.5;
             
-            // Count rare letters (X, Z, J, Q)
             const rareLetters = ['X', 'Z', 'J', 'Q'];
             let rareCount = 0;
             chain.forEach(word => {
@@ -747,7 +724,6 @@
                 });
             });
             
-            // Apply rare letter penalty
             const difficulty = Math.max(1.0, baseDifficulty - (rareCount * 0.1));
             
             return {
@@ -770,7 +746,8 @@
             
             return finalScore;
         }
-            // Check if letter list is empty
+
+        function checkWin() {
             const letterList = document.getElementById('letters');
             if (letterList.children.length === 0) {
                 gameActive = false;
@@ -780,93 +757,16 @@
                 const seconds = elapsed % 60;
                 const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 
+                const difficultyInfo = calculateDifficulty();
+                const score = calculateScore(elapsed, errors, difficultyInfo);
+                
                 document.getElementById('banner').innerHTML = `
                     <div style="font-size: 32px; margin-bottom: 20px;">🎉 Congratulations! 🎉</div>
+                    <div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ${score}</strong></div>
                     <div>Time: ${timeStr}</div>
                     <div>Errors: ${errors}</div>
-                    <div style="margin-top: 20px; font-size: 18px;">Words: ${chain.join(' → ')}</div>
-                    <div style="margin-top: 20px;">
-                        <button class="control-btn" onclick="hideBanner(); nextPuzzle();" style="padding: 10px 20px;">Next Puzzle</button>
+                    <div style="margin-top: 15px; font-size: 16px;">
+                        Difficulty: ${difficultyInfo.difficulty.toFixed(2)}x 
+                        (${difficultyInfo.singles}s, ${difficultyInfo.doubles}d, ${difficultyInfo.triples}t, ${difficultyInfo.fourPlus}×4+)
+                        ${difficultyInfo.rareLetters > 0 ? `<br>Rare letters: -${(difficultyInfo.rareLetters * 0.1).toFixed(1)}` : ''}
                     </div>
-                `;
-                document.getElementById('banner').style.display = 'block';
-            }
-        }
-
-        function hideBanner() {
-            document.getElementById('banner').style.display = 'none';
-        }
-
-        function revealAll() {
-            if (!gameActive) return;
-            
-            if (!timerStarted) {
-                startTimer();
-            }
-            
-            const nodesContainer = document.getElementById('nodes-container');
-            nodes.forEach(node => {
-                if (!node.userLetter) {
-                    errors++;
-                    node.userLetter = node.letter;
-                    const nodeDiv = nodesContainer.querySelector(`[data-node-id="${node.id}"]`);
-                    if (nodeDiv) {
-                        nodeDiv.textContent = node.letter;
-                        nodeDiv.classList.add('filled');
-                    }
-                    updateWordDisplay(node.letter);
-                }
-            });
-            
-            document.getElementById('errors').textContent = errors;
-            document.getElementById('letters').innerHTML = '';
-            
-            checkWin();
-        }
-
-        function nextPuzzle() {
-            hideBanner();
-            gameActive = false;
-            if (timerInterval) {
-                clearInterval(timerInterval);
-            }
-            timerStarted = false;
-            errors = 0;
-            document.getElementById('timer').textContent = '0:00';
-            document.getElementById('errors').textContent = '0';
-            
-            initGame();
-        }
-
-        function quitGame() {
-            if (confirm('Are you sure you want to quit?')) {
-                window.location.href = '../index.html';
-            }
-        }
-
-        function initGame() {
-            chain = findWordChain();
-            if (!chain) {
-                document.getElementById('loading').textContent = 'Error: Could not generate word chain';
-                return;
-            }
-            
-            gameActive = true;
-            const edges = buildGraph();
-            
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('stats').style.display = 'block';
-            document.getElementById('game-container').style.display = 'flex';
-            
-            displayWords();
-            
-            setTimeout(() => {
-                drawGraph(edges);
-                displayLetterList();
-            }, 100);
-        }
-
-        loadWords();
-    </script>
-</body>
-</html>
