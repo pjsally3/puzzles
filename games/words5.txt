@@ -122,7 +122,6 @@ attic
 audio
 audit
 augur
-aunty
 avail
 avert
 avian
@@ -200,7 +199,6 @@ biome
 birch
 birth
 bison
-bitty
 black
 blade
 blame
@@ -304,7 +302,6 @@ burnt
 burst
 bused
 bushy
-butch
 butte
 buxom
 buyer
@@ -689,7 +686,6 @@ expel
 extol
 extra
 exult
-eying
 fable
 facet
 faint
@@ -836,7 +832,6 @@ gaunt
 gauze
 gavel
 gawky
-gayer
 gazer
 gecko
 geeky
@@ -1000,7 +995,6 @@ hunch
 hunky
 hurry
 husky
-hussy
 hutch
 hydro
 hyena
@@ -1058,7 +1052,6 @@ juicy
 jumbo
 jumpy
 junta
-junto
 juror
 kappa
 karma
@@ -1194,7 +1187,6 @@ marsh
 mason
 masse
 match
-matey
 mauve
 maxim
 maybe
@@ -1250,7 +1242,6 @@ motel
 motif
 motor
 motto
-moult
 mound
 mount
 mourn
@@ -1301,7 +1292,6 @@ noisy
 nomad
 noose
 north
-nosey
 notch
 novel
 nudge
@@ -1323,7 +1313,6 @@ often
 olden
 older
 olive
-ombre
 omega
 onion
 onset
@@ -1432,7 +1421,6 @@ plume
 plump
 plunk
 plush
-poesy
 point
 poise
 poker
@@ -1746,7 +1734,6 @@ since
 sinew
 singe
 siren
-sissy
 sixth
 sixty
 skate
@@ -2180,7 +2167,6 @@ venom
 venue
 verge
 verse
-verso
 verve
 vicar
 video
@@ -2227,8 +2213,6 @@ wedge
 weedy
 weigh
 weird
-welch
-welsh
 whack
 whale
 wharf
@@ -2252,8 +2236,6 @@ wider
 widow
 width
 wield
-wight
-willy
 wimpy
 wince
 winch
