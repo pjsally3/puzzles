@@ -129,6 +129,10 @@
                             <th>Unique Words</th>
                             <th>Total Appearances</th>
                             <th>Avg per Chain</th>
+                            <th>Chain Start</th>
+                            <th>Chain End</th>
+                            <th>Word 1 End</th>
+                            <th>Word 2 End</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -212,18 +216,72 @@
                     const chain = findWordChain();
                     if (chain) {
                         successfulChains++;
-                        chain.forEach(word => {
+                        chain.forEach((word, wordIdx) => {
                             wordFrequency[word] = (wordFrequency[word] || 0) + 1;
                             
                             const firstLetter = word[0];
+                            const lastLetter = word[4];
+                            
                             if (!letterStats[firstLetter]) {
                                 letterStats[firstLetter] = {
                                     words: new Set(),
-                                    count: 0
+                                    count: 0,
+                                    chainStart: 0,
+                                    chainEnd: 0,
+                                    word1End: 0,
+                                    word2End: 0
                                 };
                             }
                             letterStats[firstLetter].words.add(word);
                             letterStats[firstLetter].count++;
+                            
+                            // Track position-specific stats
+                            if (wordIdx === 0) {
+                                // First word of chain
+                                letterStats[firstLetter].chainStart++;
+                            }
+                            if (wordIdx === 2) {
+                                // Last word of chain
+                                if (!letterStats[lastLetter]) {
+                                    letterStats[lastLetter] = {
+                                        words: new Set(),
+                                        count: 0,
+                                        chainStart: 0,
+                                        chainEnd: 0,
+                                        word1End: 0,
+                                        word2End: 0
+                                    };
+                                }
+                                letterStats[lastLetter].chainEnd++;
+                            }
+                            if (wordIdx === 0) {
+                                // End of first word
+                                if (!letterStats[lastLetter]) {
+                                    letterStats[lastLetter] = {
+                                        words: new Set(),
+                                        count: 0,
+                                        chainStart: 0,
+                                        chainEnd: 0,
+                                        word1End: 0,
+                                        word2End: 0
+                                    };
+                                }
+                                letterStats[lastLetter].word1End++;
+                            }
+                            if (wordIdx === 1) {
+                                // End of second word
+                                if (!letterStats[lastLetter]) {
+                                    letterStats[lastLetter] = {
+                                        words: new Set(),
+                                        count: 0,
+                                        chainStart: 0,
+                                        chainEnd: 0,
+                                        word1End: 0,
+                                        word2End: 0
+                                    };
+                                }
+                                letterStats[lastLetter].word2End++;
+                            }
                         });
                     } else {
                         failedAttempts++;
@@ -298,6 +356,10 @@
                     <td>${stats.words.size}</td>
                     <td>${stats.count}</td>
                     <td>${avgPerChain}</td>
+                    <td>${stats.chainStart}</td>
+                    <td>${stats.chainEnd}</td>
+                    <td>${stats.word1End}</td>
+                    <td>${stats.word2End}</td>
                 `;
                 if (stats.words.size < 10) {
                     row.classList.add('warning');
