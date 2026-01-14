@@ -755,18 +755,28 @@
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
                 const minutes = Math.floor(elapsed / 60);
                 const seconds = elapsed % 60;
-                const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const timeStr = minutes + ':' + seconds.toString().padStart(2, '0');
                 
                 const difficultyInfo = calculateDifficulty();
                 const score = calculateScore(elapsed, errors, difficultyInfo);
                 
-                document.getElementById('banner').innerHTML = `
-                    <div style="font-size: 32px; margin-bottom: 20px;">🎉 Congratulations! 🎉</div>
-                    <div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ${score}</strong></div>
-                    <div>Time: ${timeStr}</div>
-                    <div>Errors: ${errors}</div>
-                    <div style="margin-top: 15px; font-size: 16px;">
-                        Difficulty: ${difficultyInfo.difficulty.toFixed(2)}x 
-                        (${difficultyInfo.singles}s, ${difficultyInfo.doubles}d, ${difficultyInfo.triples}t, ${difficultyInfo.fourPlus}×4+)
-                        ${difficultyInfo.rareLetters > 0 ? `<br>Rare letters: -${(difficultyInfo.rareLetters * 0.1).toFixed(1)}` : ''}
-                    </div>
+                let bannerHTML = '<div style="font-size: 32px; margin-bottom: 20px;">Congratulations!</div>';
+                bannerHTML += '<div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ' + score + '</strong></div>';
+                bannerHTML += '<div>Time: ' + timeStr + '</div>';
+                bannerHTML += '<div>Errors: ' + errors + '</div>';
+                bannerHTML += '<div style="margin-top: 15px; font-size: 16px;">';
+                bannerHTML += 'Difficulty: ' + difficultyInfo.difficulty.toFixed(2) + 'x ';
+                bannerHTML += '(' + difficultyInfo.singles + 's, ' + difficultyInfo.doubles + 'd, ' + difficultyInfo.triples + 't, ' + difficultyInfo.fourPlus + 'x4+)';
+                if (difficultyInfo.rareLetters > 0) {
+                    bannerHTML += '<br>Rare letters: -' + (difficultyInfo.rareLetters * 0.1).toFixed(1);
+                }
+                bannerHTML += '</div>';
+                bannerHTML += '<div style="margin-top: 20px; font-size: 18px;">Words: ' + chain.join(' - ') + '</div>';
+                bannerHTML += '<div style="margin-top: 20px;">';
+                bannerHTML += '<button class="control-btn" onclick="hideBanner(); nextPuzzle();" style="padding: 10px 20px;">Next Puzzle</button>';
+                bannerHTML += '</div>';
+                
+                document.getElementById('banner').innerHTML = bannerHTML;
+                document.getElementById('banner').style.display = 'block';
+            }
+        }
