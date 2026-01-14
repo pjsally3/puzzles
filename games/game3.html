@@ -93,8 +93,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 4px;
-            gap: 6px;
+            margin-bottom: 2px;
+            gap: 4px;
         }
         .letter-item {
             width: 36px;
@@ -261,6 +261,19 @@
         let draggedElement = null;
         let gameActive = false;
         let letterPositions = {}; // Maps letter to positions in words
+        
+        // Difficulty chart based on letter frequency distribution
+        const difficultyChart = {
+            '11,2,0,0': 1.9, '9,3,0,0': 1.95, '7,4,0,0': 1.98, '5,5,0,0': 2.0,
+            '3,6,0,0': 2.0, '1,7,0,0': 1.8, '8,2,1,0': 1.7, '6,3,1,0': 1.75,
+            '4,4,1,0': 1.8, '2,5,1,0': 1.85, '0,6,1,0': 1.7, '5,2,2,0': 1.5,
+            '3,3,2,0': 1.8, '1,4,2,0': 1.75, '4,1,3,0': 1.4, '2,2,3,0': 1.6,
+            '0,3,3,0': 1.65, '7,1,0,1': 1.5, '5,2,0,1': 1.55, '3,3,0,1': 1.65,
+            '1,4,0,1': 1.6, '4,1,1,1': 1.3, '2,2,1,1': 1.45, '0,3,1,1': 1.5,
+            '1,1,2,1': 1.35, '3,0,0,2': 1.25, '1,1,0,2': 1.2, '2,0,1,2': 1.15,
+            '0,2,0,2': 1.25, '1,0,1,2': 1.1, '0,1,1,2': 1.15, '0,0,3,1': 1.2,
+            '0,1,0,3': 1.0
+        };
 
         async function loadWords() {
             try {
@@ -392,6 +405,7 @@
                     letterSpan.style.borderColor = colors[wordIdx];
                     letterSpan.dataset.wordIdx = wordIdx;
                     letterSpan.dataset.letterIdx = i;
+                    letterSpan.dataset.letter = word[i]; // Store the actual letter
                     container.appendChild(letterSpan);
                 }
                 
@@ -582,20 +596,15 @@
 
         function highlightWordPositions(e) {
             const letter = e.currentTarget.dataset.letter;
-            const positions = letterPositions[letter];
             
             document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
             
-            if (positions) {
-                positions.forEach(pos => {
-                    const letterSpan = document.querySelector(
-                        `.word-letter[data-word-idx="${pos.wordIdx}"][data-letter-idx="${pos.letterIdx}"]`
-                    );
-                    if (letterSpan) {
-                        letterSpan.classList.add('highlight');
-                    }
-                });
-            }
+            // Highlight all positions where this letter appears
+            document.querySelectorAll('.word-letter').forEach(el => {
+                if (el.dataset.letter === letter) {
+                    el.classList.add('highlight');
+                }
+            });
         }
 
         function clearHighlight() {
@@ -656,20 +665,14 @@
             const nodeId = parseInt(e.currentTarget.dataset.nodeId);
             const node = nodes.find(n => n.id === nodeId);
             if (node) {
-                const positions = letterPositions[node.letter];
-                
                 document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
                 
-                if (positions) {
-                    positions.forEach(pos => {
-                        const letterSpan = document.querySelector(
-                            `.word-letter[data-word-idx="${pos.wordIdx}"][data-letter-idx="${pos.letterIdx}"]`
-                        );
-                        if (letterSpan) {
-                            letterSpan.classList.add('highlight');
-                        }
-                    });
-                }
+                // Highlight all positions where this letter appears
+                document.querySelectorAll('.word-letter').forEach(el => {
+                    if (el.dataset.letter === node.letter) {
+                        el.classList.add('highlight');
+                    }
+                });
             }
         }
 
@@ -713,7 +716,60 @@
             document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        function checkWin() {
+        function calculateDifficulty() {
+            // Count letter frequencies
+            const letterFreq = {};
+            chain.forEach(word => {
+                word.split('').forEach(letter => {
+                    letterFreq[letter] = (letterFreq[letter] || 0) + 1;
+                });
+            });
+            
+            // Count singles, doubles, triples, 4+
+            let singles = 0, doubles = 0, triples = 0, fourPlus = 0;
+            Object.values(letterFreq).forEach(count => {
+                if (count === 1) singles++;
+                else if (count === 2) doubles++;
+                else if (count === 3) triples++;
+                else fourPlus++;
+            });
+            
+            // Get base difficulty from chart
+            const key = `${singles},${doubles},${triples},${fourPlus}`;
+            let baseDifficulty = difficultyChart[key] || 1.5; // default if not in chart
+            
+            // Count rare letters (X, Z, J, Q)
+            const rareLetters = ['X', 'Z', 'J', 'Q'];
+            let rareCount = 0;
+            chain.forEach(word => {
+                word.split('').forEach(letter => {
+                    if (rareLetters.includes(letter)) rareCount++;
+                });
+            });
+            
+            // Apply rare letter penalty
+            const difficulty = Math.max(1.0, baseDifficulty - (rareCount * 0.1));
+            
+            return {
+                difficulty: difficulty,
+                singles: singles,
+                doubles: doubles,
+                triples: triples,
+                fourPlus: fourPlus,
+                rareLetters: rareCount
+            };
+        }
+        
+        function calculateScore(elapsedSeconds, errorCount, difficultyInfo) {
+            const basePoints = 1000;
+            const errorPenalty = errorCount * 100;
+            const timePenalty = elapsedSeconds * 2;
+            
+            const scoreBeforeMultiplier = basePoints - errorPenalty - timePenalty;
+            const finalScore = Math.max(0, Math.round(difficultyInfo.difficulty * scoreBeforeMultiplier));
+            
+            return finalScore;
+        }
             // Check if letter list is empty
             const letterList = document.getElementById('letters');
             if (letterList.children.length === 0) {
