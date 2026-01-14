@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Chain Frequency Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        input {
+            padding: 8px;
+            width: 100px;
+            font-size: 16px;
+        }
+        .stats {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 5px;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .section {
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .warning {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        #progress {
+            margin: 10px 0;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Word Chain Frequency Analyzer</h1>
+        <p>This tool analyzes how often words appear in randomly generated word chains.</p>
+        
+        <div class="controls">
+            <label>Number of chains to generate: <input type="number" id="numChains" value="1000" min="100" max="100000"></label>
+            <button onclick="runAnalysis()">Run Analysis</button>
+            <button onclick="exportResults()">Export to CSV</button>
+        </div>
+        
+        <div id="progress"></div>
+        
+        <div class="stats" id="stats" style="display: none;">
+            <h3>Summary Statistics</h3>
+            <div id="statsContent"></div>
+        </div>
+        
+        <div class="results" id="results" style="display: none;">
+            <div class="section">
+                <h3>Most Frequently Used Words (Top 50)</h3>
+                <table id="topWords">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Word</th>
+                            <th>Frequency</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h3>Words Starting with Each Letter</h3>
+                <table id="letterStats">
+                    <thead>
+                        <tr>
+                            <th>Letter</th>
+                            <th>Unique Words</th>
+                            <th>Total Appearances</th>
+                            <th>Avg per Chain</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h3>Words Starting with Y (Detailed)</h3>
+                <table id="yWords">
+                    <thead>
+                        <tr>
+                            <th>Word</th>
+                            <th>Frequency</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let words = [];
+        let analysisResults = null;
+
+        // Load words
+        fetch('words5.txt')
+            .then(response => response.text())
+            .then(text => {
+                words = text.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5);
+                console.log(`Loaded ${words.length} words`);
+            })
+            .catch(error => {
+                alert('Error loading words5.txt: ' + error.message);
+            });
+
+        function findWordChain() {
+            const maxAttempts = 1000;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const word1 = words[Math.floor(Math.random() * words.length)];
+                const lastLetter1 = word1[4];
+                
+                const word2Candidates = words.filter(w => w[0] === lastLetter1);
+                if (word2Candidates.length === 0) continue;
+                
+                const word2 = word2Candidates[Math.floor(Math.random() * word2Candidates.length)];
+                const lastLetter2 = word2[4];
+                
+                const word3Candidates = words.filter(w => w[0] === lastLetter2);
+                if (word3Candidates.length === 0) continue;
+                
+                const word3 = word3Candidates[Math.floor(Math.random() * word3Candidates.length)];
+                
+                return [word1, word2, word3];
+            }
+            return null;
+        }
+
+        async function runAnalysis() {
+            if (words.length === 0) {
+                alert('Words not loaded yet. Please wait a moment and try again.');
+                return;
+            }
+
+            const numChains = parseInt(document.getElementById('numChains').value);
+            const wordFrequency = {};
+            const letterStats = {};
+            let successfulChains = 0;
+            let failedAttempts = 0;
+
+            const progressDiv = document.getElementById('progress');
+            progressDiv.textContent = 'Running analysis...';
+
+            // Run analysis in chunks to keep UI responsive
+            const chunkSize = 100;
+            for (let i = 0; i < numChains; i += chunkSize) {
+                const end = Math.min(i + chunkSize, numChains);
+                
+                for (let j = i; j < end; j++) {
+                    const chain = findWordChain();
+                    if (chain) {
+                        successfulChains++;
+                        chain.forEach(word => {
+                            wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+                            
+                            const firstLetter = word[0];
+                            if (!letterStats[firstLetter]) {
+                                letterStats[firstLetter] = {
+                                    words: new Set(),
+                                    count: 0
+                                };
+                            }
+                            letterStats[firstLetter].words.add(word);
+                            letterStats[firstLetter].count++;
+                        });
+                    } else {
+                        failedAttempts++;
+                    }
+                }
+                
+                progressDiv.textContent = `Progress: ${end}/${numChains} chains (${Math.round(end/numChains*100)}%)`;
+                await new Promise(resolve => setTimeout(resolve, 0)); // Let UI update
+            }
+
+            progressDiv.textContent = `Analysis complete! Generated ${successfulChains} chains (${failedAttempts} failed attempts)`;
+
+            // Sort words by frequency
+            const sortedWords = Object.entries(wordFrequency).sort((a, b) => b[1] - a[1]);
+
+            analysisResults = {
+                wordFrequency,
+                sortedWords,
+                letterStats,
+                totalChains: successfulChains
+            };
+
+            displayResults();
+        }
+
+        function displayResults() {
+            const { wordFrequency, sortedWords, letterStats, totalChains } = analysisResults;
+
+            // Show containers
+            document.getElementById('stats').style.display = 'block';
+            document.getElementById('results').style.display = 'block';
+
+            // Summary stats
+            const totalWords = sortedWords.reduce((sum, [word, count]) => sum + count, 0);
+            const uniqueWords = sortedWords.length;
+            const avgPerChain = (totalWords / totalChains).toFixed(2);
+            
+            document.getElementById('statsContent').innerHTML = `
+                <p><strong>Total Chains:</strong> ${totalChains}</p>
+                <p><strong>Total Word Appearances:</strong> ${totalWords}</p>
+                <p><strong>Unique Words Used:</strong> ${uniqueWords}</p>
+                <p><strong>Average Words Per Chain:</strong> ${avgPerChain}</p>
+            `;
+
+            // Top 50 words
+            const topWordsBody = document.getElementById('topWords').querySelector('tbody');
+            topWordsBody.innerHTML = '';
+            sortedWords.slice(0, 50).forEach(([word, count], index) => {
+                const percentage = ((count / totalWords) * 100).toFixed(2);
+                const row = topWordsBody.insertRow();
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${word}</td>
+                    <td>${count}</td>
+                    <td>${percentage}%</td>
+                `;
+                if (percentage > 1) {
+                    row.classList.add('warning');
+                }
+            });
+
+            // Letter statistics
+            const letterStatsBody = document.getElementById('letterStats').querySelector('tbody');
+            letterStatsBody.innerHTML = '';
+            const letters = Object.keys(letterStats).sort();
+            letters.forEach(letter => {
+                const stats = letterStats[letter];
+                const avgPerChain = (stats.count / totalChains).toFixed(2);
+                const row = letterStatsBody.insertRow();
+                row.innerHTML = `
+                    <td>${letter}</td>
+                    <td>${stats.words.size}</td>
+                    <td>${stats.count}</td>
+                    <td>${avgPerChain}</td>
+                `;
+                if (stats.words.size < 10) {
+                    row.classList.add('warning');
+                }
+                if (stats.words.size < 5) {
+                    row.classList.add('error');
+                }
+            });
+
+            // Y words detail
+            const yWordsBody = document.getElementById('yWords').querySelector('tbody');
+            yWordsBody.innerHTML = '';
+            const yWords = sortedWords.filter(([word, count]) => word[0] === 'Y');
+            
+            if (yWords.length === 0) {
+                yWordsBody.innerHTML = '<tr><td colspan="3">No words starting with Y were used</td></tr>';
+            } else {
+                yWords.forEach(([word, count]) => {
+                    const percentage = ((count / totalWords) * 100).toFixed(2);
+                    const row = yWordsBody.insertRow();
+                    row.innerHTML = `
+                        <td>${word}</td>
+                        <td>${count}</td>
+                        <td>${percentage}%</td>
+                    `;
+                    if (percentage > 1) {
+                        row.classList.add('warning');
+                    }
+                });
+            }
+        }
+
+        function exportResults() {
+            if (!analysisResults) {
+                alert('Please run analysis first');
+                return;
+            }
+
+            const { sortedWords, totalWords } = analysisResults;
+            
+            let csv = 'Word,Frequency,Percentage\n';
+            sortedWords.forEach(([word, count]) => {
+                const percentage = ((count / totalWords) * 100).toFixed(2);
+                csv += `${word},${count},${percentage}%\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'word_chain_analysis.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
