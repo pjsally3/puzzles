@@ -94,8 +94,8 @@
             gap: 8px;
         }
         .letter-item {
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             border: 2px solid #333;
             border-radius: 50%;
             display: flex;
@@ -104,7 +104,7 @@
             cursor: grab;
             background: white;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 16px;
             flex-shrink: 0;
         }
         .letter-item:active {
@@ -119,8 +119,8 @@
             min-width: 25px;
         }
         .graph-node {
-            width: 60px;
-            height: 60px;
+            width: 45px;
+            height: 45px;
             border: 3px solid #333;
             border-radius: 50%;
             position: absolute;
@@ -129,7 +129,7 @@
             justify-content: center;
             background: white;
             font-weight: bold;
-            font-size: 24px;
+            font-size: 20px;
             cursor: pointer;
         }
         .graph-node.filled {
@@ -150,6 +150,17 @@
         }
         .graph-node:hover .count-display {
             display: block;
+        }
+        .node-label {
+            position: absolute;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #333;
+            pointer-events: none;
         }
         #loading {
             text-align: center;
@@ -229,7 +240,7 @@
             <div id="controls">
                 <button class="control-btn" onclick="nextPuzzle()">Next</button>
                 <button class="control-btn reveal" onclick="revealAll()">Reveal</button>
-                <button class="control-btn quit" onclick="quitGame()">I Give Up</button>
+                <button class="control-btn quit" onclick="quitGame()">Quit</button>
             </div>
         </div>
     </div>
@@ -343,7 +354,7 @@
                 return;
             }
 
-            const radius = Math.min(width, height) / 2.5;
+            const radius = Math.min(width, height) / 3;
             const centerX = width / 2;
             const centerY = height / 2;
             
@@ -400,53 +411,105 @@
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
             svg.appendChild(defs);
 
+            // Find start and end nodes
+            const letterToNode = {};
+            nodes.forEach(node => {
+                letterToNode[node.letter] = node.id;
+            });
+            const startNodeId = letterToNode[chain[0][0]];
+            const endNodeId = letterToNode[chain[2][4]];
+
             edges.forEach(edge => {
                 const fromNode = nodes.find(n => n.id === edge.from);
                 const toNode = nodes.find(n => n.id === edge.to);
                 
-                const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}-${Math.random()}`;
-                
-                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-                marker.setAttribute('id', markerId);
-                marker.setAttribute('markerWidth', '10');
-                marker.setAttribute('markerHeight', '10');
-                marker.setAttribute('refX', '9');
-                marker.setAttribute('refY', '3');
-                marker.setAttribute('orient', 'auto');
-                
-                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
-                path.setAttribute('fill', edge.color);
-                marker.appendChild(path);
-                defs.appendChild(marker);
+                // Check if it's a self-loop
+                if (edge.from === edge.to) {
+                    // Draw a loop outside the circle
+                    const markerId = `arrow-${edge.color}-loop-${edge.from}-${Math.random()}`;
+                    
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                    marker.setAttribute('id', markerId);
+                    marker.setAttribute('markerWidth', '10');
+                    marker.setAttribute('markerHeight', '10');
+                    marker.setAttribute('refX', '9');
+                    marker.setAttribute('refY', '3');
+                    marker.setAttribute('orient', 'auto');
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
+                    path.setAttribute('fill', edge.color);
+                    marker.appendChild(path);
+                    defs.appendChild(marker);
 
-                const dx = toNode.x - fromNode.x;
-                const dy = toNode.y - fromNode.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const offsetFrom = 35;
-                const offsetTo = 35;
-                
-                const x1 = fromNode.x + (dx / dist) * offsetFrom;
-                const y1 = fromNode.y + (dy / dist) * offsetFrom;
-                const x2 = toNode.x - (dx / dist) * offsetTo;
-                const y2 = toNode.y - (dy / dist) * offsetTo;
+                    // Create a circular path above the node
+                    const loopRadius = 25;
+                    const loopPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    
+                    // Calculate the center of the loop (above the node)
+                    const loopCenterY = fromNode.y - 25;
+                    
+                    // Create arc path starting and ending at top of node
+                    const startX = fromNode.x - 15;
+                    const startY = fromNode.y - 22.5;
+                    const endX = fromNode.x + 15;
+                    const endY = fromNode.y - 22.5;
+                    
+                    loopPath.setAttribute('d', 
+                        `M ${startX} ${startY} 
+                         A ${loopRadius} ${loopRadius} 0 1 1 ${endX} ${endY}`
+                    );
+                    loopPath.setAttribute('stroke', edge.color);
+                    loopPath.setAttribute('stroke-width', '3');
+                    loopPath.setAttribute('fill', 'none');
+                    loopPath.setAttribute('marker-end', `url(#${markerId})`);
+                    svg.appendChild(loopPath);
+                } else {
+                    // Regular edge
+                    const markerId = `arrow-${edge.color}-${edge.from}-${edge.to}-${Math.random()}`;
+                    
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                    marker.setAttribute('id', markerId);
+                    marker.setAttribute('markerWidth', '10');
+                    marker.setAttribute('markerHeight', '10');
+                    marker.setAttribute('refX', '9');
+                    marker.setAttribute('refY', '3');
+                    marker.setAttribute('orient', 'auto');
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
+                    path.setAttribute('fill', edge.color);
+                    marker.appendChild(path);
+                    defs.appendChild(marker);
 
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', x1);
-                line.setAttribute('y1', y1);
-                line.setAttribute('x2', x2);
-                line.setAttribute('y2', y2);
-                line.setAttribute('stroke', edge.color);
-                line.setAttribute('stroke-width', '3');
-                line.setAttribute('marker-end', `url(#${markerId})`);
-                svg.appendChild(line);
+                    const dx = toNode.x - fromNode.x;
+                    const dy = toNode.y - fromNode.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const offsetFrom = 25;
+                    const offsetTo = 25;
+                    
+                    const x1 = fromNode.x + (dx / dist) * offsetFrom;
+                    const y1 = fromNode.y + (dy / dist) * offsetFrom;
+                    const x2 = toNode.x - (dx / dist) * offsetTo;
+                    const y2 = toNode.y - (dy / dist) * offsetTo;
+
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x1);
+                    line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2);
+                    line.setAttribute('y2', y2);
+                    line.setAttribute('stroke', edge.color);
+                    line.setAttribute('stroke-width', '3');
+                    line.setAttribute('marker-end', `url(#${markerId})`);
+                    svg.appendChild(line);
+                }
             });
 
             nodes.forEach(node => {
                 const nodeDiv = document.createElement('div');
                 nodeDiv.className = 'graph-node';
-                nodeDiv.style.left = (node.x - 30) + 'px';
-                nodeDiv.style.top = (node.y - 30) + 'px';
+                nodeDiv.style.left = (node.x - 22.5) + 'px';
+                nodeDiv.style.top = (node.y - 22.5) + 'px';
                 nodeDiv.dataset.nodeId = node.id;
                 nodeDiv.dataset.letter = node.letter;
                 
@@ -461,6 +524,26 @@
                 nodeDiv.addEventListener('mouseleave', clearHighlight);
                 
                 nodesContainer.appendChild(nodeDiv);
+
+                // Add Start label
+                if (node.id === startNodeId) {
+                    const startLabel = document.createElement('div');
+                    startLabel.className = 'node-label';
+                    startLabel.textContent = 'Start';
+                    startLabel.style.left = (node.x - 20) + 'px';
+                    startLabel.style.top = (node.y + 30) + 'px';
+                    nodesContainer.appendChild(startLabel);
+                }
+
+                // Add Stop label
+                if (node.id === endNodeId) {
+                    const stopLabel = document.createElement('div');
+                    stopLabel.className = 'node-label';
+                    stopLabel.textContent = 'Stop';
+                    stopLabel.style.left = (node.x - 18) + 'px';
+                    stopLabel.style.top = (node.y + 30) + 'px';
+                    nodesContainer.appendChild(stopLabel);
+                }
             });
         }
 
@@ -578,7 +661,9 @@
         }
 
         function checkWin() {
-            if (nodes.every(node => node.userLetter)) {
+            // Check if letter list is empty
+            const letterList = document.getElementById('letters');
+            if (letterList.children.length === 0) {
                 gameActive = false;
                 clearInterval(timerInterval);
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
