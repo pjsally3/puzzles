@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Chain Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #stats {
+            padding: 15px;
+            background: white;
+            border-bottom: 2px solid #333;
+            display: none;
+            text-align: center;
+            font-size: 18px;
+        }
+        #words-display {
+            padding: 15px;
+            background: white;
+            border-bottom: 2px solid #333;
+            display: none;
+            text-align: center;
+            font-size: 24px;
+            font-family: monospace;
+        }
+        .word-container {
+            display: inline-block;
+            margin: 0 15px;
+        }
+        .word-letter {
+            display: inline-block;
+            width: 30px;
+            height: 40px;
+            margin: 0 2px;
+            border-bottom: 3px solid;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+        }
+        .word-letter.highlight {
+            background: #ffeb3b;
+        }
+        #game-container {
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            display: none;
+            flex-direction: row;
+            overflow: hidden;
+        }
+        #graph-area {
+            flex: 1;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        #letter-list {
+            width: 180px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        #letter-list h3 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #letters {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        .letter-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2px;
+            gap: 4px;
+        }
+        .letter-item {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: white;
+            font-weight: bold;
+            font-size: 15px;
+            flex-shrink: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .letter-item.selected {
+            background: #FFD700;
+            transform: scale(1.2);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .letter-item:active {
+            cursor: grabbing;
+        }
+        .letter-item.dragging {
+            opacity: 0.3;
+        }
+        .touch-ghost {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FFD700;
+            font-weight: bold;
+            font-size: 15px;
+            pointer-events: none;
+            z-index: 10000;
+            opacity: 0.8;
+        }
+        .letter-count {
+            font-size: 12px;
+            color: #666;
+            min-width: 22px;
+        }
+        .graph-node {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            font-weight: bold;
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .graph-node.filled {
+            background: #90EE90;
+        }
+        .graph-node .count-display {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            top: -40px;
+            white-space: nowrap;
+            display: none;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .graph-node.show-count .count-display {
+            display: block;
+        }
+        .node-label {
+            position: absolute;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #333;
+            pointer-events: none;
+        }
+        #loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 20px;
+        }
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #controls {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-btn {
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .control-btn:hover {
+            background: #45a049;
+        }
+        .control-btn.reveal {
+            background: #ff9800;
+        }
+        .control-btn.reveal:hover {
+            background: #e68900;
+        }
+        .control-btn.quit {
+            background: #f44336;
+        }
+        .control-btn.quit:hover {
+            background: #da190b;
+        }
+        #banner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #4CAF50;
+            color: white;
+            padding: 40px 60px;
+            border-radius: 12px;
+            font-size: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading word list...</div>
+    <div id="stats">
+        <span>Time: <span id="timer">0:00</span></span>
+        <span style="margin-left: 30px;">Errors: <span id="errors">0</span></span>
+    </div>
+    <div id="words-display"></div>
+    <div id="game-container">
+        <div id="graph-area">
+            <svg id="arrows"></svg>
+            <div id="nodes-container"></div>
+        </div>
+        <div id="letter-list">
+            <h3>Letters</h3>
+            <div id="letters"></div>
+            <div id="controls">
+                <button class="control-btn" onclick="nextPuzzle()">Next</button>
+                <button class="control-btn reveal" onclick="revealAll()">Reveal</button>
+                <button class="control-btn quit" onclick="quitGame()">Quit</button>
+            </div>
+        </div>
+    </div>
+    <div id="banner"></div>
+
+    <script>
+        let words = [];
+        let chain = [];
+        let nodes = [];
+        let letterCounts = {};
+        let timerStarted = false;
+        let startTime = 0;
+        let timerInterval = null;
+        let errors = 0;
+        let draggedElement = null;
+        let gameActive = false;
+        let letterPositions = {};
+        let selectedLetter = null;
+        let selectedLetterElement = null;
+        let touchGhost = null;
+        
+        const difficultyChart = {
+            '11,2,0,0': 1.9, '9,3,0,0': 1.95, '7,4,0,0': 1.98, '5,5,0,0': 2.0,
+            '3,6,0,0': 2.0, '1,7,0,0': 1.8, '8,2,1,0': 1.7, '6,3,1,0': 1.75,
+            '4,4,1,0': 1.8, '2,5,1,0': 1.85, '0,6,1,0': 1.7, '5,2,2,0': 1.5,
+            '3,3,2,0': 1.8, '1,4,2,0': 1.75, '4,1,3,0': 1.4, '2,2,3,0': 1.6,
+            '0,3,3,0': 1.65, '7,1,0,1': 1.5, '5,2,0,1': 1.55, '3,3,0,1': 1.65,
+            '1,4,0,1': 1.6, '4,1,1,1': 1.3, '2,2,1,1': 1.45, '0,3,1,1': 1.5,
+            '1,1,2,1': 1.35, '3,0,0,2': 1.25, '1,1,0,2': 1.2, '2,0,1,2': 1.15,
+            '0,2,0,2': 1.25, '1,0,1,2': 1.1, '0,1,1,2': 1.15, '0,0,3,1': 1.2,
+            '0,1,0,3': 1.0
+        };
+
+        async function loadWords() {
+            try {
+                const response = await fetch('words5.txt');
+                const text = await response.text();
+                words = text.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5);
+                if (words.length === 0) {
+                    document.getElementById('loading').textContent = 'Error: No valid words found';
+                    return;
+                }
+                initGame();
+            } catch (error) {
+                document.getElementById('loading').textContent = 'Error loading words: ' + error.message;
+            }
+        }
+
+        function findWordChain() {
+            const maxAttempts = 1000;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const word1 = words[Math.floor(Math.random() * words.length)];
+                const lastLetter1 = word1[4];
+                
+                const word2Candidates = words.filter(w => w[0] === lastLetter1);
+                if (word2Candidates.length === 0) continue;
+                
+                const word2 = word2Candidates[Math.floor(Math.random() * word2Candidates.length)];
+                const lastLetter2 = word2[4];
+                
+                const word3Candidates = words.filter(w => w[0] === lastLetter2);
+                if (word3Candidates.length === 0) continue;
+                
+                const word3 = word3Candidates[Math.floor(Math.random() * word3Candidates.length)];
+                
+                return [word1, word2, word3];
+            }
+            return null;
+        }
+
+        function buildGraph() {
+            letterCounts = {};
+            letterPositions = {};
+            const letterToNode = {};
+            let nodeId = 0;
+
+            chain.forEach((word, wordIdx) => {
+                word.split('').forEach((letter, letterIdx) => {
+                    letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+                    if (!letterToNode[letter]) {
+                        letterToNode[letter] = nodeId++;
+                        letterPositions[letter] = [];
+                    }
+                    letterPositions[letter].push({ wordIdx, letterIdx });
+                });
+            });
+
+            const uniqueLetters = Object.keys(letterToNode);
+            nodes = uniqueLetters.map(letter => ({
+                id: letterToNode[letter],
+                letter: letter,
+                count: letterCounts[letter],
+                x: 0,
+                y: 0,
+                userLetter: null
+            }));
+
+            positionNodes();
+
+            const edges = [];
+            const colors = ['green', 'blue', 'red'];
+            const edgeCounts = {};
+            
+            chain.forEach((word, wordIndex) => {
+                for (let i = 0; i < word.length - 1; i++) {
+                    const fromId = letterToNode[word[i]];
+                    const toId = letterToNode[word[i + 1]];
+                    const edgeKey = fromId + '-' + toId;
+                    
+                    edgeCounts[edgeKey] = (edgeCounts[edgeKey] || 0) + 1;
+                    
+                    edges.push({
+                        from: fromId,
+                        to: toId,
+                        color: colors[wordIndex],
+                        edgeIndex: edgeCounts[edgeKey] - 1
+                    });
+                }
+            });
+
+            return edges;
+        }
+
+        function positionNodes() {
+            const graphArea = document.getElementById('graph-area');
+            const width = graphArea.clientWidth || 800;
+            const height = graphArea.clientHeight || 600;
+            
+            const n = nodes.length;
+            
+            if (n === 1) {
+                nodes[0].x = width / 2;
+                nodes[0].y = height / 2;
+                return;
+            }
+
+            const radius = Math.min(width, height) / 3;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            nodes.forEach((node, i) => {
+                const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+                node.x = centerX + radius * Math.cos(angle);
+                node.y = centerY + radius * Math.sin(angle);
+            });
+        }
+
+        function displayWords() {
+            const wordsDisplay = document.getElementById('words-display');
+            wordsDisplay.innerHTML = '';
+            const colors = ['green', 'blue', 'red'];
+            
+            chain.forEach((word, wordIdx) => {
+                const container = document.createElement('div');
+                container.className = 'word-container';
+                
+                for (let i = 0; i < 5; i++) {
+                    const letterSpan = document.createElement('span');
+                    letterSpan.className = 'word-letter';
+                    letterSpan.style.borderColor = colors[wordIdx];
+                    letterSpan.dataset.wordIdx = wordIdx;
+                    letterSpan.dataset.letterIdx = i;
+                    letterSpan.dataset.letter = word[i];
+                    container.appendChild(letterSpan);
+                }
+                
+                wordsDisplay.appendChild(container);
+            });
+            
+            wordsDisplay.style.display = 'block';
+        }
+
+        function updateWordDisplay(letter) {
+            const positions = letterPositions[letter];
+            positions.forEach(pos => {
+                const selector = '.word-letter[data-word-idx="' + pos.wordIdx + '"][data-letter-idx="' + pos.letterIdx + '"]';
+                const letterSpan = document.querySelector(selector);
+                if (letterSpan) {
+                    letterSpan.textContent = letter;
+                }
+            });
+        }
+
+        function drawGraph(edges) {
+            const nodesContainer = document.getElementById('nodes-container');
+            nodesContainer.innerHTML = '';
+            const svg = document.getElementById('arrows');
+            svg.innerHTML = '';
+            
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            svg.appendChild(defs);
+
+            const letterToNode = {};
+            nodes.forEach(node => {
+                letterToNode[node.letter] = node.id;
+            });
+            const startNodeId = letterToNode[chain[0][0]];
+            const endNodeId = letterToNode[chain[2][4]];
+
+            edges.forEach(edge => {
+                const fromNode = nodes.find(n => n.id === edge.from);
+                const toNode = nodes.find(n => n.id === edge.to);
+                
+                if (edge.from === edge.to) {
+                    const markerId = 'arrow-' + edge.color + '-loop-' + edge.from + '-' + Math.random();
+                    
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                    marker.setAttribute('id', markerId);
+                    marker.setAttribute('markerWidth', '10');
+                    marker.setAttribute('markerHeight', '10');
+                    marker.setAttribute('refX', '9');
+                    marker.setAttribute('refY', '3');
+                    marker.setAttribute('orient', 'auto');
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
+                    path.setAttribute('fill', edge.color);
+                    marker.appendChild(path);
+                    defs.appendChild(marker);
+
+                    const loopRadius = 25;
+                    const loopPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    
+                    const startX = fromNode.x - 15;
+                    const startY = fromNode.y - 22.5;
+                    const endX = fromNode.x + 15;
+                    const endY = fromNode.y - 22.5;
+                    
+                    const pathD = 'M ' + startX + ' ' + startY + ' A ' + loopRadius + ' ' + loopRadius + ' 0 1 1 ' + endX + ' ' + endY;
+                    loopPath.setAttribute('d', pathD);
+                    loopPath.setAttribute('stroke', edge.color);
+                    loopPath.setAttribute('stroke-width', '3');
+                    loopPath.setAttribute('fill', 'none');
+                    loopPath.setAttribute('marker-end', 'url(#' + markerId + ')');
+                    svg.appendChild(loopPath);
+                } else {
+                    const markerId = 'arrow-' + edge.color + '-' + edge.from + '-' + edge.to + '-' + Math.random();
+                    
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                    marker.setAttribute('id', markerId);
+                    marker.setAttribute('markerWidth', '10');
+                    marker.setAttribute('markerHeight', '10');
+                    marker.setAttribute('refX', '9');
+                    marker.setAttribute('refY', '3');
+                    marker.setAttribute('orient', 'auto');
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
+                    path.setAttribute('fill', edge.color);
+                    marker.appendChild(path);
+                    defs.appendChild(marker);
+
+                    const dx = toNode.x - fromNode.x;
+                    const dy = toNode.y - fromNode.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const offsetFrom = 25;
+                    const offsetTo = 25;
+                    
+                    const x1 = fromNode.x + (dx / dist) * offsetFrom;
+                    const y1 = fromNode.y + (dy / dist) * offsetFrom;
+                    const x2 = toNode.x - (dx / dist) * offsetTo;
+                    const y2 = toNode.y - (dy / dist) * offsetTo;
+
+                    if (edge.edgeIndex === 0) {
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', x1);
+                        line.setAttribute('y1', y1);
+                        line.setAttribute('x2', x2);
+                        line.setAttribute('y2', y2);
+                        line.setAttribute('stroke', edge.color);
+                        line.setAttribute('stroke-width', '3');
+                        line.setAttribute('marker-end', 'url(#' + markerId + ')');
+                        svg.appendChild(line);
+                    } else {
+                        const curvePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        
+                        const perpX = -dy / dist;
+                        const perpY = dx / dist;
+                        const curveOffset = edge.edgeIndex * 20 * (edge.edgeIndex % 2 === 1 ? 1 : -1);
+                        
+                        const midX = (x1 + x2) / 2 + perpX * curveOffset;
+                        const midY = (y1 + y2) / 2 + perpY * curveOffset;
+                        
+                        const pathD = 'M ' + x1 + ' ' + y1 + ' Q ' + midX + ' ' + midY + ' ' + x2 + ' ' + y2;
+                        curvePath.setAttribute('d', pathD);
+                        curvePath.setAttribute('stroke', edge.color);
+                        curvePath.setAttribute('stroke-width', '3');
+                        curvePath.setAttribute('fill', 'none');
+                        curvePath.setAttribute('marker-end', 'url(#' + markerId + ')');
+                        svg.appendChild(curvePath);
+                    }
+                }
+            });
+
+            nodes.forEach(node => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = 'graph-node';
+                nodeDiv.style.left = (node.x - 22.5) + 'px';
+                nodeDiv.style.top = (node.y - 22.5) + 'px';
+                nodeDiv.dataset.nodeId = node.id;
+                nodeDiv.dataset.letter = node.letter;
+                
+                const countDisplay = document.createElement('div');
+                countDisplay.className = 'count-display';
+                countDisplay.textContent = 'Used ' + node.count + ' time' + (node.count > 1 ? 's' : '');
+                nodeDiv.appendChild(countDisplay);
+
+                nodeDiv.addEventListener('dragover', handleDragOver);
+                nodeDiv.addEventListener('drop', handleDrop);
+                nodeDiv.addEventListener('mouseenter', highlightWordPositions);
+                nodeDiv.addEventListener('mouseleave', clearHighlight);
+                nodeDiv.addEventListener('click', handleNodeClick);
+                nodeDiv.addEventListener('touchstart', handleNodeTouch);
+                
+                nodesContainer.appendChild(nodeDiv);
+
+                if (node.id === startNodeId) {
+                    const startLabel = document.createElement('div');
+                    startLabel.className = 'node-label';
+                    startLabel.textContent = 'Start';
+                    startLabel.style.left = (node.x - 20) + 'px';
+                    startLabel.style.top = (node.y + 30) + 'px';
+                    nodesContainer.appendChild(startLabel);
+                }
+
+                if (node.id === endNodeId) {
+                    const stopLabel = document.createElement('div');
+                    stopLabel.className = 'node-label';
+                    stopLabel.textContent = 'Stop';
+                    stopLabel.style.left = (node.x - 18) + 'px';
+                    stopLabel.style.top = (node.y + 30) + 'px';
+                    nodesContainer.appendChild(stopLabel);
+                }
+            });
+        }
+
+        function highlightWordPositions(e) {
+            const letter = e.currentTarget.dataset.letter;
+            
+            document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
+            
+            document.querySelectorAll('.word-letter').forEach(el => {
+                if (el.dataset.letter === letter) {
+                    el.classList.add('highlight');
+                }
+            });
+        }
+
+        function clearHighlight() {
+            document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
+        }
+
+        function displayLetterList() {
+            const letterList = document.getElementById('letters');
+            letterList.innerHTML = '';
+            
+            const sortedLetters = Object.keys(letterCounts).sort();
+            
+            sortedLetters.forEach(letter => {
+                const count = letterCounts[letter];
+                const container = document.createElement('div');
+                container.className = 'letter-container';
+                
+                const letterDiv = document.createElement('div');
+                letterDiv.className = 'letter-item';
+                letterDiv.textContent = letter;
+                letterDiv.draggable = true;
+                letterDiv.dataset.letter = letter;
+                
+                letterDiv.addEventListener('dragstart', handleDragStart);
+                letterDiv.addEventListener('dragend', handleDragEnd);
+                letterDiv.addEventListener('touchstart', handleTouchStart);
+                letterDiv.addEventListener('touchmove', handleTouchMove);
+                letterDiv.addEventListener('touchend', handleTouchEnd);
+                
+                const countLabel = document.createElement('div');
+                countLabel.className = 'letter-count';
+                countLabel.textContent = '(' + count + ')';
+                
+                container.appendChild(letterDiv);
+                container.appendChild(countLabel);
+                
+                letterList.appendChild(container);
+            });
+        }
+
+        function handleDragStart(e) {
+            if (!timerStarted && gameActive) {
+                startTimer();
+            }
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.dataset.letter);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (!gameActive) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            const nodeId = parseInt(e.currentTarget.dataset.nodeId);
+            const node = nodes.find(n => n.id === nodeId);
+            if (node) {
+                document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
+                
+                document.querySelectorAll('.word-letter').forEach(el => {
+                    if (el.dataset.letter === node.letter) {
+                        el.classList.add('highlight');
+                    }
+                });
+            }
+        }
+
+        function handleDrop(e) {
+            if (!gameActive) return;
+            e.preventDefault();
+            const letter = e.dataTransfer.getData('text/plain');
+            const nodeId = parseInt(e.currentTarget.dataset.nodeId);
+            const node = nodes.find(n => n.id === nodeId);
+            
+            if (node.userLetter) return;
+            
+            if (node.letter === letter) {
+                node.userLetter = letter;
+                e.currentTarget.textContent = letter;
+                e.currentTarget.classList.add('filled');
+                
+                updateWordDisplay(letter);
+                
+                if (draggedElement) {
+                    draggedElement.parentElement.remove();
+                }
+                
+                checkWin();
+            } else {
+                errors++;
+                document.getElementById('errors').textContent = errors;
+            }
+        }
+
+        function handleTouchStart(e) {
+            if (!gameActive) return;
+            e.preventDefault();
+            
+            if (!timerStarted) {
+                startTimer();
+            }
+            
+            const touch = e.touches[0];
+            selectedLetterElement = e.currentTarget;
+            selectedLetter = selectedLetterElement.dataset.letter;
+            
+            selectedLetterElement.classList.add('dragging');
+            
+            touchGhost = document.createElement('div');
+            touchGhost.className = 'touch-ghost';
+            touchGhost.textContent = selectedLetter;
+            touchGhost.style.left = (touch.clientX - 20) + 'px';
+            touchGhost.style.top = (touch.clientY - 20) + 'px';
+            document.body.appendChild(touchGhost);
+            
+            highlightLetterPositions(selectedLetter);
+        }
+
+        function handleTouchMove(e) {
+            if (!touchGhost) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            touchGhost.style.left = (touch.clientX - 20) + 'px';
+            touchGhost.style.top = (touch.clientY - 20) + 'px';
+        }
+
+        function handleTouchEnd(e) {
+            if (!gameActive || !touchGhost) return;
+            e.preventDefault();
+            
+            const touch = e.changedTouches[0];
+            const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            if (touchGhost) {
+                document.body.removeChild(touchGhost);
+                touchGhost = null;
+            }
+            
+            if (selectedLetterElement) {
+                selectedLetterElement.classList.remove('dragging');
+            }
+            
+            clearHighlight();
+            
+            if (targetElement && targetElement.classList.contains('graph-node')) {
+                const nodeId = parseInt(targetElement.dataset.nodeId);
+                const node = nodes.find(n => n.id === nodeId);
+                
+                if (node && !node.userLetter) {
+                    if (node.letter === selectedLetter) {
+                        node.userLetter = selectedLetter;
+                        targetElement.textContent = selectedLetter;
+                        targetElement.classList.add('filled');
+                        
+                        updateWordDisplay(selectedLetter);
+                        
+                        if (selectedLetterElement) {
+                            selectedLetterElement.parentElement.remove();
+                        }
+                        
+                        checkWin();
+                    } else {
+                        errors++;
+                        document.getElementById('errors').textContent = errors;
+                    }
+                }
+            }
+            
+            selectedLetter = null;
+            selectedLetterElement = null;
+        }
+
+        function handleNodeClick(e) {
+            if (!gameActive) return;
+            
+            e.currentTarget.classList.toggle('show-count');
+            setTimeout(function() {
+                e.currentTarget.classList.remove('show-count');
+            }, 2000);
+        }
+
+        function handleNodeTouch(e) {
+            if (!gameActive) return;
+            e.stopPropagation();
+        }
+
+        function highlightLetterPositions(letter) {
+            document.querySelectorAll('.word-letter').forEach(el => el.classList.remove('highlight'));
+            
+            document.querySelectorAll('.word-letter').forEach(el => {
+                if (el.dataset.letter === letter) {
+                    el.classList.add('highlight');
+                }
+            });
+        }
+
+        function startTimer() {
+            timerStarted = true;
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('timer').textContent = minutes + ':' + seconds.toString().padStart(2, '0');
+        }
+
+        function calculateDifficulty() {
+            const letterFreq = {};
+            chain.forEach(word => {
+                word.split('').forEach(letter => {
+                    letterFreq[letter] = (letterFreq[letter] || 0) + 1;
+                });
+            });
+            
+            let singles = 0, doubles = 0, triples = 0, fourPlus = 0;
+            Object.values(letterFreq).forEach(count => {
+                if (count === 1) singles++;
+                else if (count === 2) doubles++;
+                else if (count === 3) triples++;
+                else fourPlus++;
+            });
+            
+            const key = singles + ',' + doubles + ',' + triples + ',' + fourPlus;
+            let baseDifficulty = difficultyChart[key] || 1.5;
+            
+            const rareLetters = ['X', 'Z', 'J', 'Q'];
+            let rareCount = 0;
+            chain.forEach(word => {
+                word.split('').forEach(letter => {
+                    if (rareLetters.includes(letter)) rareCount++;
+                });
+            });
+            
+            const difficulty = Math.max(1.0, baseDifficulty - (rareCount * 0.1));
+            
+            return {
+                difficulty: difficulty,
+                singles: singles,
+                doubles: doubles,
+                triples: triples,
+                fourPlus: fourPlus,
+                rareLetters: rareCount
+            };
+        }
+        
+        function calculateScore(elapsedSeconds, errorCount, difficultyInfo) {
+            const basePoints = 1000;
+            const errorPenalty = errorCount * 100;
+            const timePenalty = elapsedSeconds * 2;
+            
+            const scoreBeforeMultiplier = basePoints - errorPenalty - timePenalty;
+            const finalScore = Math.max(0, Math.round(difficultyInfo.difficulty * scoreBeforeMultiplier));
+            
+            return finalScore;
+        }
+
+        function checkWin() {
+            const letterList = document.getElementById('letters');
+            if (letterList.children.length === 0) {
+                gameActive = false;
+                clearInterval(timerInterval);
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                const timeStr = minutes + ':' + seconds.toString().padStart(2, '0');
+                
+                const difficultyInfo = calculateDifficulty();
+                const score = calculateScore(elapsed, errors, difficultyInfo);
+                
+                let html = '<div style="font-size: 32px; margin-bottom: 20px;">Congratulations!</div>';
+                html += '<div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ' + score + '</strong></div>';
+                html += '<div>Time: ' + timeStr + '</div>';
+                html += '<div>Errors: ' + errors + '</div>';
+                html += '<div style="margin-top: 15px; font-size: 16px;">';
+                html += 'Difficulty: ' + difficultyInfo.difficulty.toFixed(2) + 'x ';
+                html += '(' + difficultyInfo.singles + 's, ' + difficultyInfo.doubles + 'd, ' + difficultyInfo.triples + 't, ' + difficultyInfo.fourPlus + 'x4+)';
+                if (difficultyInfo.rareLetters > 0) {
+                    html += '<br>Rare letters: -' + (difficultyInfo.rareLetters * 0.1).toFixed(1);
+                }
+                html += '</div>';
+                html += '<div style="margin-top: 20px; font-size: 18px;">Words: ' + chain.join(' - ') + '</div>';
+                html += '<div style="margin-top: 20px;">';
+                html += '<button class="control-btn" onclick="hideBanner(); nextPuzzle();" style="padding: 10px 20px;">Next Puzzle</button>';
+                html += '</div>';
+                
+                document.getElementById('banner').innerHTML = html;
+                document.getElementById('banner').style.display = 'block';
+            }
+        }
+
+        function hideBanner() {
+            document.getElementById('banner').style.display = 'none';
+        }
+
+        function revealAll() {
+            if (!gameActive) return;
+            
+            if (!timerStarted) {
+                startTimer();
+            }
+            
+            const nodesContainer = document.getElementById('nodes-container');
+            nodes.forEach(node => {
+                if (!node.userLetter) {
+                    errors++;
+                    node.userLetter = node.letter;
+                    const selector = '[data-node-id="' + node.id + '"]';
+                    const nodeDiv = nodesContainer.querySelector(selector);
+                    if (nodeDiv) {
+                        nodeDiv.textContent = node.letter;
+                        nodeDiv.classList.add('filled');
+                    }
+                    updateWordDisplay(node.letter);
+                }
+            });
+            
+            document.getElementById('errors').textContent = errors;
+            document.getElementById('letters').innerHTML = '';
+            
+            checkWin();
+        }
+
+        function nextPuzzle() {
+            hideBanner();
+            gameActive = false;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+            timerStarted = false;
+            errors = 0;
+            document.getElementById('timer').textContent = '0:00';
+            document.getElementById('errors').textContent = '0';
+            
+            initGame();
+        }
+
+        function quitGame() {
+            if (confirm('Are you sure you want to quit?')) {
+                window.location.href = '../index.html';
+            }
+        }
+
+        function initGame() {
+            chain = findWordChain();
+            if (!chain) {
+                document.getElementById('loading').textContent = 'Error: Could not generate word chain';
+                return;
+            }
+            
+            gameActive = true;
+            const edges = buildGraph();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('stats').style.display = 'block';
+            document.getElementById('game-container').style.display = 'flex';
+            
+            displayWords();
+            
+            setTimeout(function() {
+                drawGraph(edges);
+                displayLetterList();
+            }, 100);
+        }
+
+        loadWords();
+    </script>
+</body>
+</html>
