@@ -72,6 +72,7 @@
     };
 
     const Tile = ({ edges, size, isDragging }) => {
+      if (!edges || edges.length !== 4) return null;
       const [top, right, bottom, left] = edges;
       
       return (
@@ -299,6 +300,9 @@
           fontFamily: 'Arial, sans-serif',
           padding: '20px',
         }}>
+          {solution.length === 0 ? (
+            <div>Loading...</div>
+          ) : (
           <div style={{ display: 'flex', gap: '60px', alignItems: 'center' }}>
             {/* Grid */}
             <div>
@@ -364,7 +368,7 @@
                     fontWeight: 'bold',
                   }}
                 >
-                  Try Again
+                  Reset
                 </button>
                 <button
                   onClick={newGame}
@@ -452,6 +456,7 @@
               </div>
             </div>
           </div>
+          )}
         </div>
       );
     }
