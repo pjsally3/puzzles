@@ -125,6 +125,40 @@
             width: 10,
             background: left,
           }} />
+          
+          {/* Black corners */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 10,
+            height: 10,
+            background: 'black',
+          }} />
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: 10,
+            height: 10,
+            background: 'black',
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: 10,
+            height: 10,
+            background: 'black',
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: 10,
+            height: 10,
+            background: 'black',
+          }} />
         </div>
       );
     };
@@ -136,6 +170,10 @@
       const [draggedTile, setDraggedTile] = useState(null);
       const [dragSource, setDragSource] = useState(null);
       const [isComplete, setIsComplete] = useState(false);
+      const [lockedTiles, setLockedTiles] = useState([]);
+      const [startTime, setStartTime] = useState(null);
+      const [elapsedTime, setElapsedTime] = useState(0);
+      const [timerInterval, setTimerInterval] = useState(null);
       
       useEffect(() => {
         newGame();
@@ -144,6 +182,21 @@
       useEffect(() => {
         checkCompletion();
       }, [grid]);
+
+      useEffect(() => {
+        // Start timer when game starts
+        if (startTime && !isComplete) {
+          const interval = setInterval(() => {
+            setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+          }, 1000);
+          setTimerInterval(interval);
+          return () => clearInterval(interval);
+        } else if (isComplete && timerInterval) {
+          // Stop timer when complete
+          clearInterval(timerInterval);
+          setTimerInterval(null);
+        }
+      }, [startTime, isComplete]);
       
       const newGame = () => {
         const newSolution = generatePuzzle();
@@ -154,6 +207,11 @@
         const shuffled = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
         setRightSide(shuffled);
         setIsComplete(false);
+        setLockedTiles([]);
+        
+        // Start timer
+        setStartTime(Date.now());
+        setElapsedTime(0);
       };
 
       const resetGame = () => {
@@ -162,6 +220,11 @@
         setRightSide(allTiles);
         setGrid([null, null, null, null]);
         setIsComplete(false);
+        setLockedTiles([]);
+        
+        // Restart timer
+        setStartTime(Date.now());
+        setElapsedTime(0);
       };
 
       const quitGame = () => {
@@ -170,17 +233,73 @@
           newGame();
         }
       };
-      
-      const checkCompletion = () => {
-        if (grid.every(tile => tile !== null)) {
-          const correct = grid.every((tileIdx, pos) => tileIdx === pos);
-          setIsComplete(correct);
+
+      const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      const handleHint = () => {
+        // Find all empty positions in the grid
+        const emptyPositions = [];
+        grid.forEach((tile, pos) => {
+          if (tile === null) {
+            emptyPositions.push(pos);
+          }
+        });
+
+        if (emptyPositions.length === 0) {
+          return; // Grid is full
+        }
+
+        // Pick a random empty position
+        const randomPos = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
+        
+        // The correct tile for this position is the tile with index === position
+        const correctTile = randomPos;
+
+        // Check if this tile is available (on the right side)
+        const tileOnRight = rightSide.includes(correctTile);
+        if (!tileOnRight) {
+          // Tile is already placed elsewhere, try another position
+          const availablePositions = emptyPositions.filter(pos => rightSide.includes(pos));
+          if (availablePositions.length === 0) {
+            return; // No hints available
+          }
+          const newPos = availablePositions[Math.floor(Math.random() * availablePositions.length)];
+          const newCorrectTile = newPos;
+          
+          // Place the tile
+          const newGrid = [...grid];
+          newGrid[newPos] = newCorrectTile;
+          setGrid(newGrid);
+          
+          // Remove from right side
+          setRightSide(rightSide.filter(t => t !== newCorrectTile));
+          
+          // Lock this position
+          setLockedTiles([...lockedTiles, newPos]);
         } else {
-          setIsComplete(false);
+          // Place the correct tile
+          const newGrid = [...grid];
+          newGrid[randomPos] = correctTile;
+          setGrid(newGrid);
+          
+          // Remove from right side
+          setRightSide(rightSide.filter(t => t !== correctTile));
+          
+          // Lock this position
+          setLockedTiles([...lockedTiles, randomPos]);
         }
       };
       
-      const validatePlacement = (tileIdx, gridPos) => {
+      const checkCompletion = () => {
+        // If all tiles are placed and validation allowed them, it's a win!
+        setIsComplete(grid.every(tile => tile !== null));
+      };
+      
+      const validatePlacement = (tileIdx, gridPos, gridToCheck = grid) => {
         const tileEdges = solution[tileIdx];
         const [top, right, bottom, left] = tileEdges;
         
@@ -189,7 +308,7 @@
         
         // Check top neighbor
         if (gridPos >= 2) {
-          const topNeighbor = grid[gridPos - 2];
+          const topNeighbor = gridToCheck[gridPos - 2];
           if (topNeighbor !== null) {
             const neighborBottom = solution[topNeighbor][2];
             if (top !== neighborBottom) return false;
@@ -198,7 +317,7 @@
         
         // Check right neighbor
         if (gridPos % 2 === 0) {
-          const rightNeighbor = grid[gridPos + 1];
+          const rightNeighbor = gridToCheck[gridPos + 1];
           if (rightNeighbor !== null) {
             const neighborLeft = solution[rightNeighbor][3];
             if (right !== neighborLeft) return false;
@@ -207,7 +326,7 @@
         
         // Check bottom neighbor
         if (gridPos < 2) {
-          const bottomNeighbor = grid[gridPos + 2];
+          const bottomNeighbor = gridToCheck[gridPos + 2];
           if (bottomNeighbor !== null) {
             const neighborTop = solution[bottomNeighbor][0];
             if (bottom !== neighborTop) return false;
@@ -216,7 +335,7 @@
         
         // Check left neighbor
         if (gridPos % 2 === 1) {
-          const leftNeighbor = grid[gridPos - 1];
+          const leftNeighbor = gridToCheck[gridPos - 1];
           if (leftNeighbor !== null) {
             const neighborRight = solution[leftNeighbor][1];
             if (left !== neighborRight) return false;
@@ -227,6 +346,10 @@
       };
       
       const handleDragStart = (tileIdx, source) => {
+        // Prevent dragging locked tiles
+        if (source.type === 'grid' && lockedTiles.includes(source.index)) {
+          return;
+        }
         setDraggedTile(tileIdx);
         setDragSource(source);
       };
@@ -242,25 +365,27 @@
         // Check if position is empty
         if (grid[gridPos] !== null) return;
         
-        // Validate placement
-        if (!validatePlacement(draggedTile, gridPos)) {
+        // Create updated grid for validation - clear source position first if moving within grid
+        let gridForValidation = [...grid];
+        if (dragSource.type === 'grid') {
+          gridForValidation[dragSource.index] = null;
+        }
+        
+        // Validate placement using the updated grid
+        if (!validatePlacement(draggedTile, gridPos, gridForValidation)) {
           // Return to original position
           return;
         }
         
-        // Valid placement
-        const newGrid = [...grid];
+        // Valid placement - update grid
+        const newGrid = [...gridForValidation];
         newGrid[gridPos] = draggedTile;
         setGrid(newGrid);
         
-        // Remove from source
+        // Remove from right side if coming from there
         if (dragSource.type === 'right') {
           const newRightSide = rightSide.filter((_, idx) => idx !== dragSource.index);
           setRightSide(newRightSide);
-        } else if (dragSource.type === 'grid') {
-          const newGrid2 = [...newGrid];
-          newGrid2[dragSource.index] = null;
-          setGrid(newGrid2);
         }
       };
       
@@ -306,12 +431,21 @@
           <div style={{ display: 'flex', gap: '60px', alignItems: 'center' }}>
             {/* Grid */}
             <div>
-              <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Grid Builder</h2>
+              <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Grid Builder</h2>
+              <div style={{ 
+                textAlign: 'center', 
+                marginBottom: '10px',
+                fontSize: '24px',
+                fontWeight: 'bold',
+                color: '#333',
+              }}>
+                ⏱️ {formatTime(elapsedTime)}
+              </div>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(2, ${TILE_SIZE}px)`,
                 gridTemplateRows: `repeat(2, ${TILE_SIZE}px)`,
-                gap: `${GAP}px`,
+                gap: '0px',
                 background: 'white',
                 padding: '20px',
                 borderRadius: '10px',
@@ -334,15 +468,31 @@
                   >
                     {tileIdx !== null && (
                       <div
-                        draggable
+                        draggable={!lockedTiles.includes(gridPos)}
                         onDragStart={() => handleDragStart(tileIdx, { type: 'grid', index: gridPos })}
                         onDragEnd={handleDragEnd}
+                        style={{
+                          cursor: lockedTiles.includes(gridPos) ? 'not-allowed' : 'grab',
+                          opacity: lockedTiles.includes(gridPos) ? 0.7 : 1,
+                          position: 'relative',
+                        }}
                       >
                         <Tile 
                           edges={solution[tileIdx]} 
                           size={TILE_SIZE}
                           isDragging={draggedTile === tileIdx}
                         />
+                        {lockedTiles.includes(gridPos) && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '30px',
+                          }}>
+                            🔒
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -369,6 +519,22 @@
                   }}
                 >
                   Reset
+                </button>
+                <button
+                  onClick={handleHint}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    fontSize: '16px',
+                    background: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Hint
                 </button>
                 <button
                   onClick={newGame}
