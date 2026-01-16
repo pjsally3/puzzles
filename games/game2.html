@@ -1,0 +1,384 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+const COLORS = ['blue', 'green', 'red', 'yellow'];
+const TILE_SIZE = 100;
+const GAP = 10;
+
+// Generate a random puzzle by assigning colors to the 12 edges of a 2x2 grid
+const generatePuzzle = () => {
+  // Grid layout (0-indexed):
+  //  [0] [1]
+  //  [2] [3]
+  
+  // Each tile has edges: [top, right, bottom, left]
+  // We need to assign colors such that shared edges match
+  
+  const tiles = [
+    [null, null, null, null], // tile 0: [top, right, bottom, left]
+    [null, null, null, null], // tile 1
+    [null, null, null, null], // tile 2
+    [null, null, null, null], // tile 3
+  ];
+  
+  // Assign outer edges randomly
+  tiles[0][0] = COLORS[Math.floor(Math.random() * 4)]; // top
+  tiles[0][3] = COLORS[Math.floor(Math.random() * 4)]; // left
+  tiles[1][0] = COLORS[Math.floor(Math.random() * 4)]; // top
+  tiles[1][1] = COLORS[Math.floor(Math.random() * 4)]; // right
+  tiles[2][2] = COLORS[Math.floor(Math.random() * 4)]; // bottom
+  tiles[2][3] = COLORS[Math.floor(Math.random() * 4)]; // left
+  tiles[3][1] = COLORS[Math.floor(Math.random() * 4)]; // right
+  tiles[3][2] = COLORS[Math.floor(Math.random() * 4)]; // bottom
+  
+  // Assign shared edges
+  const shared01 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 0 and 1 (horizontal)
+  tiles[0][1] = shared01;
+  tiles[1][3] = shared01;
+  
+  const shared02 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 0 and 2 (vertical)
+  tiles[0][2] = shared02;
+  tiles[2][0] = shared02;
+  
+  const shared13 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 1 and 3 (vertical)
+  tiles[1][2] = shared13;
+  tiles[3][0] = shared13;
+  
+  const shared23 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 2 and 3 (horizontal)
+  tiles[2][1] = shared23;
+  tiles[3][3] = shared23;
+  
+  return tiles;
+};
+
+const Tile = ({ edges, size, isDragging }) => {
+  const [top, right, bottom, left] = edges;
+  
+  return (
+    <div 
+      style={{
+        width: size,
+        height: size,
+        position: 'relative',
+        background: '#f0f0f0',
+        opacity: isDragging ? 0.5 : 1,
+        cursor: 'grab',
+      }}
+    >
+      {/* Top edge */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 10,
+        background: top,
+      }} />
+      
+      {/* Right edge */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 10,
+        background: right,
+      }} />
+      
+      {/* Bottom edge */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 10,
+        background: bottom,
+      }} />
+      
+      {/* Left edge */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        width: 10,
+        background: left,
+      }} />
+    </div>
+  );
+};
+
+export default function ColorTilePuzzle() {
+  const [solution, setSolution] = useState([]);
+  const [grid, setGrid] = useState([null, null, null, null]);
+  const [rightSide, setRightSide] = useState([0, 1, 2, 3]);
+  const [draggedTile, setDraggedTile] = useState(null);
+  const [dragSource, setDragSource] = useState(null);
+  const [isComplete, setIsComplete] = useState(false);
+  
+  useEffect(() => {
+    resetGame();
+  }, []);
+  
+  useEffect(() => {
+    checkCompletion();
+  }, [grid]);
+  
+  const resetGame = () => {
+    const newSolution = generatePuzzle();
+    setSolution(newSolution);
+    setGrid([null, null, null, null]);
+    
+    // Shuffle tiles for right side
+    const shuffled = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    setRightSide(shuffled);
+    setIsComplete(false);
+  };
+  
+  const checkCompletion = () => {
+    if (grid.every(tile => tile !== null)) {
+      const correct = grid.every((tileIdx, pos) => tileIdx === pos);
+      setIsComplete(correct);
+    } else {
+      setIsComplete(false);
+    }
+  };
+  
+  const validatePlacement = (tileIdx, gridPos) => {
+    const tileEdges = solution[tileIdx];
+    const [top, right, bottom, left] = tileEdges;
+    
+    // Check adjacent tiles
+    // Grid layout: [0, 1, 2, 3] => [[0,1], [2,3]]
+    
+    // Check top neighbor
+    if (gridPos >= 2) {
+      const topNeighbor = grid[gridPos - 2];
+      if (topNeighbor !== null) {
+        const neighborBottom = solution[topNeighbor][2];
+        if (top !== neighborBottom) return false;
+      }
+    }
+    
+    // Check right neighbor
+    if (gridPos % 2 === 0) {
+      const rightNeighbor = grid[gridPos + 1];
+      if (rightNeighbor !== null) {
+        const neighborLeft = solution[rightNeighbor][3];
+        if (right !== neighborLeft) return false;
+      }
+    }
+    
+    // Check bottom neighbor
+    if (gridPos < 2) {
+      const bottomNeighbor = grid[gridPos + 2];
+      if (bottomNeighbor !== null) {
+        const neighborTop = solution[bottomNeighbor][0];
+        if (bottom !== neighborTop) return false;
+      }
+    }
+    
+    // Check left neighbor
+    if (gridPos % 2 === 1) {
+      const leftNeighbor = grid[gridPos - 1];
+      if (leftNeighbor !== null) {
+        const neighborRight = solution[leftNeighbor][1];
+        if (left !== neighborRight) return false;
+      }
+    }
+    
+    return true;
+  };
+  
+  const handleDragStart = (tileIdx, source) => {
+    setDraggedTile(tileIdx);
+    setDragSource(source);
+  };
+  
+  const handleDragEnd = () => {
+    setDraggedTile(null);
+    setDragSource(null);
+  };
+  
+  const handleDropOnGrid = (gridPos) => {
+    if (draggedTile === null) return;
+    
+    // Check if position is empty
+    if (grid[gridPos] !== null) return;
+    
+    // Validate placement
+    if (!validatePlacement(draggedTile, gridPos)) {
+      // Return to original position
+      return;
+    }
+    
+    // Valid placement
+    const newGrid = [...grid];
+    newGrid[gridPos] = draggedTile;
+    setGrid(newGrid);
+    
+    // Remove from source
+    if (dragSource.type === 'right') {
+      const newRightSide = rightSide.filter((_, idx) => idx !== dragSource.index);
+      setRightSide(newRightSide);
+    } else if (dragSource.type === 'grid') {
+      const newGrid2 = [...newGrid];
+      newGrid2[dragSource.index] = null;
+      setGrid(newGrid2);
+    }
+  };
+  
+  const handleDropOnRight = () => {
+    if (draggedTile === null) return;
+    if (dragSource.type === 'right') return; // Already on right
+    
+    // Find original position for this tile
+    const originalPos = draggedTile;
+    const newRightSide = [...rightSide];
+    
+    // Insert at correct position to maintain order
+    let insertPos = 0;
+    for (let i = 0; i < newRightSide.length; i++) {
+      if (newRightSide[i] < originalPos) {
+        insertPos = i + 1;
+      }
+    }
+    newRightSide.splice(insertPos, 0, draggedTile);
+    setRightSide(newRightSide);
+    
+    // Remove from grid
+    if (dragSource.type === 'grid') {
+      const newGrid = [...grid];
+      newGrid[dragSource.index] = null;
+      setGrid(newGrid);
+    }
+  };
+  
+  return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      minHeight: '100vh',
+      background: '#e8e8e8',
+      fontFamily: 'Arial, sans-serif',
+      padding: '20px',
+    }}>
+      <div style={{ display: 'flex', gap: '60px', alignItems: 'center' }}>
+        {/* Grid */}
+        <div>
+          <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Place the tiles</h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(2, ${TILE_SIZE}px)`,
+            gridTemplateRows: `repeat(2, ${TILE_SIZE}px)`,
+            gap: `${GAP}px`,
+            background: 'white',
+            padding: '20px',
+            borderRadius: '10px',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          }}>
+            {grid.map((tileIdx, gridPos) => (
+              <div
+                key={gridPos}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleDropOnGrid(gridPos)}
+                style={{
+                  width: TILE_SIZE,
+                  height: TILE_SIZE,
+                  background: tileIdx === null ? '#ddd' : 'transparent',
+                  borderRadius: '5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {tileIdx !== null && (
+                  <div
+                    draggable
+                    onDragStart={() => handleDragStart(tileIdx, { type: 'grid', index: gridPos })}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <Tile 
+                      edges={solution[tileIdx]} 
+                      size={TILE_SIZE}
+                      isDragging={draggedTile === tileIdx}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <button
+            onClick={resetGame}
+            style={{
+              marginTop: '20px',
+              width: '100%',
+              padding: '12px',
+              fontSize: '16px',
+              background: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            Reset Game
+          </button>
+          
+          {isComplete && (
+            <div style={{
+              marginTop: '20px',
+              padding: '15px',
+              background: '#4CAF50',
+              color: 'white',
+              textAlign: 'center',
+              borderRadius: '5px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+            }}>
+              🎉 You Win! 🎉
+            </div>
+          )}
+        </div>
+        
+        {/* Right side tiles */}
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDropOnRight}
+          style={{
+            minHeight: '400px',
+            minWidth: TILE_SIZE + 40,
+          }}
+        >
+          <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Tiles</h2>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            background: 'white',
+            padding: '20px',
+            borderRadius: '10px',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          }}>
+            {rightSide.map((tileIdx, idx) => (
+              <div
+                key={tileIdx}
+                draggable
+                onDragStart={() => handleDragStart(tileIdx, { type: 'right', index: idx })}
+                onDragEnd={handleDragEnd}
+              >
+                <Tile 
+                  edges={solution[tileIdx]} 
+                  size={TILE_SIZE}
+                  isDragging={draggedTile === tileIdx}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
