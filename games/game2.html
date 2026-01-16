@@ -22,51 +22,41 @@
     const { useState, useEffect } = React;
 
     const COLORS = ['blue', 'green', 'red', 'yellow'];
-    const TILE_SIZE = 100;
-    const GAP = 10;
+    const TILE_SIZE = 80;
 
-    // Generate a random puzzle by assigning colors to the 12 edges of a 2x2 grid
-    const generatePuzzle = () => {
-      // Grid layout (0-indexed):
-      //  [0] [1]
-      //  [2] [3]
+    const generatePuzzleForGrid = (rows, cols) => {
+      const numTiles = rows * cols;
+      const tiles = Array(numTiles).fill(null).map(() => [null, null, null, null]);
       
-      // Each tile has edges: [top, right, bottom, left]
-      // We need to assign colors such that shared edges match
+      for (let i = 0; i < numTiles; i++) {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        
+        if (row === 0) tiles[i][0] = COLORS[Math.floor(Math.random() * 4)];
+        if (col === cols - 1) tiles[i][1] = COLORS[Math.floor(Math.random() * 4)];
+        if (row === rows - 1) tiles[i][2] = COLORS[Math.floor(Math.random() * 4)];
+        if (col === 0) tiles[i][3] = COLORS[Math.floor(Math.random() * 4)];
+      }
       
-      const tiles = [
-        [null, null, null, null], // tile 0: [top, right, bottom, left]
-        [null, null, null, null], // tile 1
-        [null, null, null, null], // tile 2
-        [null, null, null, null], // tile 3
-      ];
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols - 1; col++) {
+          const leftIdx = row * cols + col;
+          const rightIdx = leftIdx + 1;
+          const sharedColor = COLORS[Math.floor(Math.random() * 4)];
+          tiles[leftIdx][1] = sharedColor;
+          tiles[rightIdx][3] = sharedColor;
+        }
+      }
       
-      // Assign outer edges randomly
-      tiles[0][0] = COLORS[Math.floor(Math.random() * 4)]; // top
-      tiles[0][3] = COLORS[Math.floor(Math.random() * 4)]; // left
-      tiles[1][0] = COLORS[Math.floor(Math.random() * 4)]; // top
-      tiles[1][1] = COLORS[Math.floor(Math.random() * 4)]; // right
-      tiles[2][2] = COLORS[Math.floor(Math.random() * 4)]; // bottom
-      tiles[2][3] = COLORS[Math.floor(Math.random() * 4)]; // left
-      tiles[3][1] = COLORS[Math.floor(Math.random() * 4)]; // right
-      tiles[3][2] = COLORS[Math.floor(Math.random() * 4)]; // bottom
-      
-      // Assign shared edges
-      const shared01 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 0 and 1 (horizontal)
-      tiles[0][1] = shared01;
-      tiles[1][3] = shared01;
-      
-      const shared02 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 0 and 2 (vertical)
-      tiles[0][2] = shared02;
-      tiles[2][0] = shared02;
-      
-      const shared13 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 1 and 3 (vertical)
-      tiles[1][2] = shared13;
-      tiles[3][0] = shared13;
-      
-      const shared23 = COLORS[Math.floor(Math.random() * 4)]; // between tiles 2 and 3 (horizontal)
-      tiles[2][1] = shared23;
-      tiles[3][3] = shared23;
+      for (let row = 0; row < rows - 1; row++) {
+        for (let col = 0; col < cols; col++) {
+          const topIdx = row * cols + col;
+          const bottomIdx = (row + 1) * cols + col;
+          const sharedColor = COLORS[Math.floor(Math.random() * 4)];
+          tiles[topIdx][2] = sharedColor;
+          tiles[bottomIdx][0] = sharedColor;
+        }
+      }
       
       return tiles;
     };
@@ -84,153 +74,145 @@
             background: '#f0f0f0',
             opacity: isDragging ? 0.5 : 1,
             cursor: 'grab',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
-          {/* Top edge */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 10,
-            background: top,
-          }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 10, background: top }} />
+          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 10, background: right }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 10, background: bottom }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 10, background: left }} />
           
-          {/* Right edge */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: 10,
-            background: right,
-          }} />
-          
-          {/* Bottom edge */}
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 10,
-            background: bottom,
-          }} />
-          
-          {/* Left edge */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: 10,
-            background: left,
-          }} />
-          
-          {/* Black corners */}
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 10,
-            height: 10,
-            background: 'black',
-          }} />
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 10,
-            height: 10,
-            background: 'black',
-          }} />
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: 10,
-            height: 10,
-            background: 'black',
-          }} />
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            right: 0,
-            width: 10,
-            height: 10,
-            background: 'black',
-          }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 10, height: 10, background: 'black' }} />
+          <div style={{ position: 'absolute', top: 0, right: 0, width: 10, height: 10, background: 'black' }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: 10, height: 10, background: 'black' }} />
+          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, background: 'black' }} />
         </div>
       );
     };
 
     function GridBuilder() {
+      const [rows, setRows] = useState(2);
+      const [cols, setCols] = useState(2);
+      const [activeRows, setActiveRows] = useState(2);
+      const [activeCols, setActiveCols] = useState(2);
+      const [gameStarted, setGameStarted] = useState(false);
+      
       const [solution, setSolution] = useState([]);
-      const [grid, setGrid] = useState([null, null, null, null]);
-      const [rightSide, setRightSide] = useState([0, 1, 2, 3]);
+      const [grid, setGrid] = useState([]);
+      const [rightSide, setRightSide] = useState([]);
+      const [tileToPosition, setTileToPosition] = useState({});
+      
       const [draggedTile, setDraggedTile] = useState(null);
       const [dragSource, setDragSource] = useState(null);
       const [isComplete, setIsComplete] = useState(false);
       const [lockedTiles, setLockedTiles] = useState([]);
+      
       const [startTime, setStartTime] = useState(null);
       const [elapsedTime, setElapsedTime] = useState(0);
       const [timerInterval, setTimerInterval] = useState(null);
       
       useEffect(() => {
-        newGame();
+        startGame();
       }, []);
       
       useEffect(() => {
-        checkCompletion();
+        if (grid.length > 0) {
+          checkCompletion();
+        }
       }, [grid]);
 
       useEffect(() => {
-        // Start timer when game starts
-        if (startTime && !isComplete) {
+        if (startTime && !isComplete && gameStarted) {
           const interval = setInterval(() => {
             setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
           }, 1000);
           setTimerInterval(interval);
           return () => clearInterval(interval);
         } else if (isComplete && timerInterval) {
-          // Stop timer when complete
           clearInterval(timerInterval);
           setTimerInterval(null);
         }
-      }, [startTime, isComplete]);
+      }, [startTime, isComplete, gameStarted]);
       
-      const newGame = () => {
-        const newSolution = generatePuzzle();
+      const startGame = () => {
+        const numTiles = rows * cols;
+        const newSolution = generatePuzzleForGrid(rows, cols);
         setSolution(newSolution);
-        setGrid([null, null, null, null]);
+        setGrid(Array(numTiles).fill(null));
         
-        // Shuffle tiles for right side
-        const shuffled = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
-        setRightSide(shuffled);
+        // Set active dimensions to current slider values
+        setActiveRows(rows);
+        setActiveCols(cols);
+        
+        const allTiles = Array.from({ length: numTiles }, (_, i) => i);
+        const shuffled = [...allTiles].sort(() => Math.random() - 0.5);
+        const rightSideArray = Array(numTiles).fill(null);
+        const positionMap = {};
+        shuffled.forEach((tileIdx, displayPos) => {
+          rightSideArray[displayPos] = tileIdx;
+          positionMap[tileIdx] = displayPos;
+        });
+        setRightSide(rightSideArray);
+        setTileToPosition(positionMap);
         setIsComplete(false);
         setLockedTiles([]);
+        setGameStarted(true);
         
-        // Start timer
         setStartTime(Date.now());
         setElapsedTime(0);
       };
 
+      const newGame = () => {
+        setGameStarted(false);
+        setGrid([]);
+        setRightSide([]);
+        setSolution([]);
+        setIsComplete(false);
+        setLockedTiles([]);
+        setTileToPosition({});
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          setTimerInterval(null);
+        }
+        setElapsedTime(0);
+        setStartTime(null);
+      };
+
       const resetGame = () => {
-        // Move all tiles back to right side in original order
-        const allTiles = [0, 1, 2, 3];
+        const numTiles = activeRows * activeCols;
+        const allTiles = Array.from({ length: numTiles }, (_, i) => i);
         setRightSide(allTiles);
-        setGrid([null, null, null, null]);
+        
+        const positionMap = {};
+        allTiles.forEach((tileIdx, pos) => {
+          positionMap[tileIdx] = pos;
+        });
+        setTileToPosition(positionMap);
+        
+        setGrid(Array(numTiles).fill(null));
         setIsComplete(false);
         setLockedTiles([]);
         
-        // Restart timer
         setStartTime(Date.now());
         setElapsedTime(0);
       };
 
       const quitGame = () => {
         if (confirm('Are you sure you want to quit?')) {
-          // Reset to initial state
-          newGame();
+          setGameStarted(false);
+          setGrid([]);
+          setRightSide([]);
+          setSolution([]);
+          setIsComplete(false);
+          setLockedTiles([]);
+          setTileToPosition({});
+          if (timerInterval) {
+            clearInterval(timerInterval);
+            setTimerInterval(null);
+          }
+          setElapsedTime(0);
+          setStartTime(null);
         }
       };
 
@@ -241,61 +223,39 @@
       };
 
       const handleHint = () => {
-        // Find all empty positions in the grid
         const emptyPositions = [];
         grid.forEach((tile, pos) => {
-          if (tile === null) {
-            emptyPositions.push(pos);
-          }
+          if (tile === null) emptyPositions.push(pos);
         });
 
-        if (emptyPositions.length === 0) {
-          return; // Grid is full
-        }
+        if (emptyPositions.length === 0) return;
 
-        // Pick a random empty position
-        const randomPos = emptyPositions[Math.floor(Math.random() * emptyPositions.length)];
+        const shuffledPositions = [...emptyPositions].sort(() => Math.random() - 0.5);
         
-        // The correct tile for this position is the tile with index === position
-        const correctTile = randomPos;
-
-        // Check if this tile is available (on the right side)
-        const tileOnRight = rightSide.includes(correctTile);
-        if (!tileOnRight) {
-          // Tile is already placed elsewhere, try another position
-          const availablePositions = emptyPositions.filter(pos => rightSide.includes(pos));
-          if (availablePositions.length === 0) {
-            return; // No hints available
+        for (const pos of shuffledPositions) {
+          const correctTile = pos;
+          
+          if (rightSide.includes(correctTile)) {
+            if (validatePlacement(correctTile, pos)) {
+              const newGrid = [...grid];
+              newGrid[pos] = correctTile;
+              setGrid(newGrid);
+              
+              const rightSideIndex = rightSide.indexOf(correctTile);
+              const newRightSide = [...rightSide];
+              newRightSide[rightSideIndex] = null;
+              setRightSide(newRightSide);
+              
+              setLockedTiles([...lockedTiles, pos]);
+              return;
+            }
           }
-          const newPos = availablePositions[Math.floor(Math.random() * availablePositions.length)];
-          const newCorrectTile = newPos;
-          
-          // Place the tile
-          const newGrid = [...grid];
-          newGrid[newPos] = newCorrectTile;
-          setGrid(newGrid);
-          
-          // Remove from right side
-          setRightSide(rightSide.filter(t => t !== newCorrectTile));
-          
-          // Lock this position
-          setLockedTiles([...lockedTiles, newPos]);
-        } else {
-          // Place the correct tile
-          const newGrid = [...grid];
-          newGrid[randomPos] = correctTile;
-          setGrid(newGrid);
-          
-          // Remove from right side
-          setRightSide(rightSide.filter(t => t !== correctTile));
-          
-          // Lock this position
-          setLockedTiles([...lockedTiles, randomPos]);
         }
+        
+        alert('No valid hints available! Try rearranging your current tiles.');
       };
       
       const checkCompletion = () => {
-        // If all tiles are placed and validation allowed them, it's a win!
         setIsComplete(grid.every(tile => tile !== null));
       };
       
@@ -303,20 +263,18 @@
         const tileEdges = solution[tileIdx];
         const [top, right, bottom, left] = tileEdges;
         
-        // Check adjacent tiles
-        // Grid layout: [0, 1, 2, 3] => [[0,1], [2,3]]
+        const COLS = activeCols;
+        const numTiles = activeRows * activeCols;
         
-        // Check top neighbor
-        if (gridPos >= 2) {
-          const topNeighbor = gridToCheck[gridPos - 2];
+        if (gridPos >= COLS) {
+          const topNeighbor = gridToCheck[gridPos - COLS];
           if (topNeighbor !== null) {
             const neighborBottom = solution[topNeighbor][2];
             if (top !== neighborBottom) return false;
           }
         }
         
-        // Check right neighbor
-        if (gridPos % 2 === 0) {
+        if ((gridPos + 1) % COLS !== 0) {
           const rightNeighbor = gridToCheck[gridPos + 1];
           if (rightNeighbor !== null) {
             const neighborLeft = solution[rightNeighbor][3];
@@ -324,17 +282,15 @@
           }
         }
         
-        // Check bottom neighbor
-        if (gridPos < 2) {
-          const bottomNeighbor = gridToCheck[gridPos + 2];
+        if (gridPos < numTiles - COLS) {
+          const bottomNeighbor = gridToCheck[gridPos + COLS];
           if (bottomNeighbor !== null) {
             const neighborTop = solution[bottomNeighbor][0];
             if (bottom !== neighborTop) return false;
           }
         }
         
-        // Check left neighbor
-        if (gridPos % 2 === 1) {
+        if (gridPos % COLS !== 0) {
           const leftNeighbor = gridToCheck[gridPos - 1];
           if (leftNeighbor !== null) {
             const neighborRight = solution[leftNeighbor][1];
@@ -346,7 +302,6 @@
       };
       
       const handleDragStart = (tileIdx, source) => {
-        // Prevent dragging locked tiles
         if (source.type === 'grid' && lockedTiles.includes(source.index)) {
           return;
         }
@@ -361,53 +316,39 @@
       
       const handleDropOnGrid = (gridPos) => {
         if (draggedTile === null) return;
-        
-        // Check if position is empty
         if (grid[gridPos] !== null) return;
         
-        // Create updated grid for validation - clear source position first if moving within grid
         let gridForValidation = [...grid];
         if (dragSource.type === 'grid') {
           gridForValidation[dragSource.index] = null;
         }
         
-        // Validate placement using the updated grid
         if (!validatePlacement(draggedTile, gridPos, gridForValidation)) {
-          // Return to original position
           return;
         }
         
-        // Valid placement - update grid
         const newGrid = [...gridForValidation];
         newGrid[gridPos] = draggedTile;
         setGrid(newGrid);
         
-        // Remove from right side if coming from there
         if (dragSource.type === 'right') {
-          const newRightSide = rightSide.filter((_, idx) => idx !== dragSource.index);
+          const newRightSide = [...rightSide];
+          newRightSide[dragSource.index] = null;
           setRightSide(newRightSide);
         }
       };
       
       const handleDropOnRight = () => {
         if (draggedTile === null) return;
-        if (dragSource.type === 'right') return; // Already on right
+        if (dragSource.type === 'right') return;
         
-        // Find original position for this tile
-        const originalPos = draggedTile;
+        const originalPos = tileToPosition[draggedTile];
+        if (originalPos === undefined) return;
+        
         const newRightSide = [...rightSide];
-        
-        // Insert at correct position to maintain order
-        let insertPos = 0;
-        for (let i = 0; i < newRightSide.length; i++) {
-          if (newRightSide[i] < originalPos) {
-            insertPos = i + 1;
-          }
-        }
-        newRightSide.splice(insertPos, 0, draggedTile);
+        newRightSide[originalPos] = draggedTile;
         setRightSide(newRightSide);
         
-        // Remove from grid
         if (dragSource.type === 'grid') {
           const newGrid = [...grid];
           newGrid[dragSource.index] = null;
@@ -425,26 +366,63 @@
           fontFamily: 'Arial, sans-serif',
           padding: '20px',
         }}>
-          {solution.length === 0 ? (
-            <div>Loading...</div>
-          ) : (
           <div style={{ display: 'flex', gap: '60px', alignItems: 'center' }}>
-            {/* Grid */}
+            
             <div>
               <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>Grid Builder</h2>
-              <div style={{ 
-                textAlign: 'center', 
+              
+              <div style={{
+                display: 'flex',
+                gap: '20px',
+                justifyContent: 'center',
                 marginBottom: '10px',
-                fontSize: '24px',
-                fontWeight: 'bold',
-                color: '#333',
               }}>
-                ⏱️ {formatTime(elapsedTime)}
+                <div style={{ textAlign: 'center' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                    Rows: {rows}
+                  </label>
+                  <input
+                    type="range"
+                    min="2"
+                    max="5"
+                    value={rows}
+                    onChange={(e) => setRows(parseInt(e.target.value))}
+                    disabled={gameStarted && !isComplete}
+                    style={{ width: '120px' }}
+                  />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                    Columns: {cols}
+                  </label>
+                  <input
+                    type="range"
+                    min="2"
+                    max="5"
+                    value={cols}
+                    onChange={(e) => setCols(parseInt(e.target.value))}
+                    disabled={gameStarted && !isComplete}
+                    style={{ width: '120px' }}
+                  />
+                </div>
               </div>
+              
+              {gameStarted && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  marginBottom: '10px',
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  color: '#333',
+                }}>
+                  ⏱️ {formatTime(elapsedTime)}
+                </div>
+              )}
+              
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(2, ${TILE_SIZE}px)`,
-                gridTemplateRows: `repeat(2, ${TILE_SIZE}px)`,
+                gridTemplateColumns: `repeat(${activeCols}, ${TILE_SIZE}px)`,
+                gridTemplateRows: `repeat(${activeRows}, ${TILE_SIZE}px)`,
                 gap: '0px',
                 background: 'white',
                 padding: '20px',
@@ -469,12 +447,16 @@
                     {tileIdx !== null && (
                       <div
                         draggable={!lockedTiles.includes(gridPos)}
-                        onDragStart={() => handleDragStart(tileIdx, { type: 'grid', index: gridPos })}
+                        onDragStart={(e) => {
+                          handleDragStart(tileIdx, { type: 'grid', index: gridPos });
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
                         onDragEnd={handleDragEnd}
                         style={{
                           cursor: lockedTiles.includes(gridPos) ? 'not-allowed' : 'grab',
                           opacity: lockedTiles.includes(gridPos) ? 0.7 : 1,
                           position: 'relative',
+                          outline: 'none',
                         }}
                       >
                         <Tile 
@@ -505,16 +487,34 @@
                 gap: '10px',
               }}>
                 <button
-                  onClick={resetGame}
+                  onClick={startGame}
+                  disabled={gameStarted && !isComplete}
                   style={{
                     flex: 1,
                     padding: '12px',
                     fontSize: '16px',
-                    background: '#2196F3',
+                    background: (gameStarted && !isComplete) ? '#ccc' : '#4CAF50',
                     color: 'white',
                     border: 'none',
                     borderRadius: '5px',
-                    cursor: 'pointer',
+                    cursor: (gameStarted && !isComplete) ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Start
+                </button>
+                <button
+                  onClick={resetGame}
+                  disabled={!gameStarted}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    fontSize: '16px',
+                    background: !gameStarted ? '#ccc' : '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
                     fontWeight: 'bold',
                   }}
                 >
@@ -522,15 +522,16 @@
                 </button>
                 <button
                   onClick={handleHint}
+                  disabled={!gameStarted || isComplete}
                   style={{
                     flex: 1,
                     padding: '12px',
                     fontSize: '16px',
-                    background: '#FF9800',
+                    background: (!gameStarted || isComplete) ? '#ccc' : '#FF9800',
                     color: 'white',
                     border: 'none',
                     borderRadius: '5px',
-                    cursor: 'pointer',
+                    cursor: (!gameStarted || isComplete) ? 'not-allowed' : 'pointer',
                     fontWeight: 'bold',
                   }}
                 >
@@ -538,15 +539,16 @@
                 </button>
                 <button
                   onClick={newGame}
+                  disabled={!gameStarted}
                   style={{
                     flex: 1,
                     padding: '12px',
                     fontSize: '16px',
-                    background: '#4CAF50',
+                    background: !gameStarted ? '#ccc' : '#4CAF50',
                     color: 'white',
                     border: 'none',
                     borderRadius: '5px',
-                    cursor: 'pointer',
+                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
                     fontWeight: 'bold',
                   }}
                 >
@@ -554,75 +556,114 @@
                 </button>
                 <button
                   onClick={quitGame}
+                  disabled={!gameStarted}
                   style={{
                     flex: 1,
                     padding: '12px',
                     fontSize: '16px',
-                    background: '#f44336',
+                    background: !gameStarted ? '#ccc' : '#f44336',
                     color: 'white',
                     border: 'none',
                     borderRadius: '5px',
-                    cursor: 'pointer',
+                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
                     fontWeight: 'bold',
                   }}
                 >
                   Quit
                 </button>
               </div>
-              
-              {isComplete && (
+            </div>
+            
+            {isComplete ? (
+              <div style={{
+                minHeight: '400px',
+                minWidth: TILE_SIZE + 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
                 <div style={{
-                  marginTop: '20px',
-                  padding: '15px',
+                  padding: '30px',
                   background: '#4CAF50',
                   color: 'white',
                   textAlign: 'center',
-                  borderRadius: '5px',
-                  fontSize: '18px',
+                  borderRadius: '10px',
+                  fontSize: '24px',
                   fontWeight: 'bold',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                 }}>
                   🎉 You Win! 🎉
-                </div>
-              )}
-            </div>
-            
-            {/* Right side tiles */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDropOnRight}
-              style={{
-                minHeight: '400px',
-                minWidth: TILE_SIZE + 40,
-              }}
-            >
-              <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Tiles</h2>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                background: 'white',
-                padding: '20px',
-                borderRadius: '10px',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              }}>
-                {rightSide.map((tileIdx, idx) => (
-                  <div
-                    key={tileIdx}
-                    draggable
-                    onDragStart={() => handleDragStart(tileIdx, { type: 'right', index: idx })}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <Tile 
-                      edges={solution[tileIdx]} 
-                      size={TILE_SIZE}
-                      isDragging={draggedTile === tileIdx}
-                    />
+                  <div style={{ fontSize: '18px', marginTop: '10px' }}>
+                    Time: {formatTime(elapsedTime)}
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDropOnRight}
+                style={{
+                  minHeight: '400px',
+                  minWidth: TILE_SIZE + 40,
+                }}
+              >
+                <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Tiles</h2>
+                <div style={{
+                  display: 'flex',
+                  gap: '20px',
+                  background: 'white',
+                  padding: '20px',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                }}>
+                  {Array.from({ length: Math.ceil((activeRows * activeCols) / 5) }, (_, colIdx) => (
+                    <div key={colIdx} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '20px',
+                    }}>
+                      {Array.from({ length: 5 }, (_, rowIdx) => {
+                        const tilePosition = colIdx * 5 + rowIdx;
+                        if (tilePosition >= activeRows * activeCols) return null;
+                        
+                        const tileIdx = rightSide[tilePosition];
+                        
+                        if (tileIdx === null) {
+                          return (
+                            <div
+                              key={tilePosition}
+                              style={{
+                                width: TILE_SIZE,
+                                height: TILE_SIZE,
+                                background: '#f0f0f0',
+                                border: '2px dashed #ccc',
+                                borderRadius: '5px',
+                              }}
+                            />
+                          );
+                        }
+                        
+                        return (
+                          <div
+                            key={tilePosition}
+                            draggable
+                            onDragStart={() => handleDragStart(tileIdx, { type: 'right', index: tilePosition })}
+                            onDragEnd={handleDragEnd}
+                          >
+                            <Tile 
+                              edges={solution[tileIdx]} 
+                              size={TILE_SIZE}
+                              isDragging={draggedTile === tileIdx}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          )}
         </div>
       );
     }
