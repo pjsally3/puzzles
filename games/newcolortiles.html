@@ -135,6 +135,7 @@
       const [startTime, setStartTime] = useState(null);
       const [elapsedTime, setElapsedTime] = useState(0);
       const [timerInterval, setTimerInterval] = useState(null);
+      const [showHowToPlay, setShowHowToPlay] = useState(false);
       
       const calculateEdgeCounts = () => {
         const counts = {
@@ -159,7 +160,7 @@
       };
       
       useEffect(() => {
-        startGame();
+        // Don't auto-start anymore - let user configure first
       }, []);
       
       useEffect(() => {
@@ -195,15 +196,15 @@
         }
         // hard = 0 hints
         
-        // Initialize grid and right side
+        // Initialize grid and right side (always 25 spaces)
         const newGrid = Array(numTiles).fill(null);
         const allTiles = Array.from({ length: numTiles }, (_, i) => i);
         const shuffled = [...allTiles].sort(() => Math.random() - 0.5);
-        const rightSideArray = Array(numTiles).fill(null);
+        const rightSideArray = Array(25).fill(null); // Always 25 spaces
         const positionMap = {};
-        shuffled.forEach((tileIdx, displayPos) => {
-          rightSideArray[displayPos] = tileIdx;
-          positionMap[tileIdx] = displayPos;
+        shuffled.forEach((tileIdx, idx) => {
+          rightSideArray[idx] = tileIdx;
+          positionMap[tileIdx] = idx;
         });
         
         // Place hint tiles (correct tile in correct position, locked)
@@ -676,7 +677,7 @@
                     fontWeight: 'bold',
                   }}
                 >
-                  Lock A Tile
+                  Hint
                 </button>
                 <button
                   onClick={newGame}
@@ -711,6 +712,22 @@
                   }}
                 >
                   Quit
+                </button>
+                <button
+                  onClick={() => setShowHowToPlay(true)}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#9C27B0',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  How To Play
                 </button>
               </div>
             </div>
@@ -755,7 +772,8 @@
                   borderRadius: '8px',
                   boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                 }}>
-                  {Array.from({ length: Math.ceil((activeRows * activeCols) / 5) }, (_, colIdx) => (
+                  {/* Always show 5 columns of 5 tiles each (25 total spaces) */}
+                  {Array.from({ length: 5 }, (_, colIdx) => (
                     <div key={colIdx} style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -763,9 +781,7 @@
                     }}>
                       {Array.from({ length: 5 }, (_, rowIdx) => {
                         const tilePosition = colIdx * 5 + rowIdx;
-                        if (tilePosition >= activeRows * activeCols) return null;
-                        
-                        const tileIdx = rightSide[tilePosition];
+                        const tileIdx = rightSide[tilePosition] !== undefined ? rightSide[tilePosition] : null;
                         
                         if (tileIdx === null) {
                           return (
@@ -865,6 +881,61 @@
               </div>
             )}
           </div>
+          
+          {/* How To Play Dialog */}
+          {showHowToPlay && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000,
+            }}
+            onClick={() => setShowHowToPlay(false)}
+            >
+              <div style={{
+                background: 'white',
+                padding: '30px',
+                borderRadius: '10px',
+                maxWidth: '500px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+              >
+                <h2 style={{ marginTop: 0, marginBottom: '20px' }}>How To Play</h2>
+                <p style={{ lineHeight: '1.6', marginBottom: '15px' }}>
+                  Place tiles where the colors match. Use the Hint if you need help. Use Reset if you need to start over (locked tiles stay).
+                </p>
+                <p style={{ lineHeight: '1.6', marginBottom: '15px' }}>
+                  Easy mode starts you out with a number of locked tiles. Medium mode gives you fewer locked tiles and Hard mode starts you with no locked tiles.
+                </p>
+                <p style={{ lineHeight: '1.6', marginBottom: '20px' }}>
+                  <strong>Note:</strong> Hint will place a tile in the correct place if one is available. That does not mean the unlocked tiles around it are necessarily correct!
+                </p>
+                <button
+                  onClick={() => setShowHowToPlay(false)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    fontSize: '16px',
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Got It!
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
