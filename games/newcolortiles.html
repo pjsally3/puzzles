@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Grid Builder</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
   <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.js"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -21,6 +25,87 @@
 
   <script type="text/babel">
     const { useState, useEffect } = React;
+
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4UVYiRmXS-byupCIJgD4BH2Dq4orkA7w",
+      authDomain: "pjpuzzles-4ee57.firebaseapp.com",
+      projectId: "pjpuzzles-4ee57",
+      storageBucket: "pjpuzzles-4ee57.firebasestorage.app",
+      messagingSenderId: "847724129290",
+      appId: "1:847724129290:web:e40a80245d1dae0a7103f3",
+      measurementId: "G-TVGZ8717SR"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Stats helper functions
+    const getLocalStats = () => {
+      const stats = localStorage.getItem('gridBuilderStats');
+      return stats ? JSON.parse(stats) : {
+        gamesPlayed: 0,
+        gamesWon: 0,
+        totalTime: 0,
+        bestTime: null,
+        statsByDifficulty: {
+          easy: { played: 0, won: 0 },
+          medium: { played: 0, won: 0 },
+          hard: { played: 0, won: 0 }
+        }
+      };
+    };
+
+    const saveLocalStats = (stats) => {
+      localStorage.setItem('gridBuilderStats', JSON.stringify(stats));
+    };
+
+    const recordGameStart = async (difficulty, gridSize) => {
+      // Local stats
+      const localStats = getLocalStats();
+      localStats.gamesPlayed++;
+      localStats.statsByDifficulty[difficulty].played++;
+      saveLocalStats(localStats);
+
+      // Global stats
+      try {
+        await db.collection('stats').add({
+          event: 'game_started',
+          difficulty: difficulty,
+          gridSize: gridSize,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (error) {
+        console.error('Error recording game start:', error);
+      }
+    };
+
+    const recordGameWin = async (difficulty, gridSize, timeInSeconds) => {
+      // Local stats
+      const localStats = getLocalStats();
+      localStats.gamesWon++;
+      localStats.totalTime += timeInSeconds;
+      localStats.statsByDifficulty[difficulty].won++;
+      
+      if (localStats.bestTime === null || timeInSeconds < localStats.bestTime) {
+        localStats.bestTime = timeInSeconds;
+      }
+      
+      saveLocalStats(localStats);
+
+      // Global stats
+      try {
+        await db.collection('stats').add({
+          event: 'game_won',
+          difficulty: difficulty,
+          gridSize: gridSize,
+          timeInSeconds: timeInSeconds,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (error) {
+        console.error('Error recording game win:', error);
+      }
+    };
 
     const COLORS = ['blue', 'green', 'red', 'yellow'];
     const TILE_SIZE = 60;
@@ -136,6 +221,8 @@
       const [elapsedTime, setElapsedTime] = useState(0);
       const [timerInterval, setTimerInterval] = useState(null);
       const [showHowToPlay, setShowHowToPlay] = useState(false);
+      const [showStats, setShowStats] = useState(false);
+      const [globalStats, setGlobalStats] = useState(null);
       
       const calculateEdgeCounts = () => {
         const counts = {
@@ -241,6 +328,9 @@
         
         setStartTime(Date.now());
         setElapsedTime(0);
+        
+        // Record game start
+        recordGameStart(difficulty, `${rows}x${cols}`);
       };
 
       const newGame = () => {
@@ -320,6 +410,41 @@
         return `${mins}:${secs.toString().padStart(2, '0')}`;
       };
 
+      const fetchGlobalStats = async () => {
+        try {
+          const gamesStarted = await db.collection('stats').where('event', '==', 'game_started').get();
+          const gamesWon = await db.collection('stats').where('event', '==', 'game_won').get();
+          
+          let totalTime = 0;
+          let gameCount = 0;
+          
+          gamesWon.forEach(doc => {
+            const data = doc.data();
+            if (data.timeInSeconds) {
+              totalTime += data.timeInSeconds;
+              gameCount++;
+            }
+          });
+          
+          const avgTime = gameCount > 0 ? Math.round(totalTime / gameCount) : 0;
+          
+          return {
+            totalGamesStarted: gamesStarted.size,
+            totalGamesWon: gamesWon.size,
+            averageTime: avgTime
+          };
+        } catch (error) {
+          console.error('Error fetching global stats:', error);
+          return null;
+        }
+      };
+
+      const openStatsDialog = async () => {
+        setShowStats(true);
+        const stats = await fetchGlobalStats();
+        setGlobalStats(stats);
+      };
+
       const handleHint = () => {
         const emptyPositions = [];
         grid.forEach((tile, pos) => {
@@ -354,7 +479,14 @@
       };
       
       const checkCompletion = () => {
-        setIsComplete(grid.every(tile => tile !== null));
+        const wasComplete = isComplete;
+        const nowComplete = grid.every(tile => tile !== null);
+        setIsComplete(nowComplete);
+        
+        // If just completed, record win
+        if (!wasComplete && nowComplete) {
+          recordGameWin(difficulty, `${activeRows}x${activeCols}`, elapsedTime);
+        }
       };
       
       const validatePlacement = (tileIdx, gridPos, gridToCheck = grid) => {
@@ -729,6 +861,22 @@
                 >
                   How To Play
                 </button>
+                <button
+                  onClick={openStatsDialog}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: '#00BCD4',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Stats
+                </button>
               </div>
             </div>
             
@@ -932,6 +1080,98 @@
                   }}
                 >
                   Got It!
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Stats Dialog */}
+          {showStats && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 1000,
+            }}
+            onClick={() => setShowStats(false)}
+            >
+              <div style={{
+                background: 'white',
+                padding: '30px',
+                borderRadius: '10px',
+                maxWidth: '500px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+              >
+                <h2 style={{ marginTop: 0, marginBottom: '20px' }}>Statistics</h2>
+                
+                {(() => {
+                  const localStats = getLocalStats();
+                  const avgTime = localStats.gamesWon > 0 
+                    ? Math.round(localStats.totalTime / localStats.gamesWon) 
+                    : 0;
+                  
+                  return (
+                    <>
+                      <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>Your Stats</h3>
+                      <div style={{ marginBottom: '20px', lineHeight: '1.8' }}>
+                        <div><strong>Games Played:</strong> {localStats.gamesPlayed}</div>
+                        <div><strong>Games Won:</strong> {localStats.gamesWon}</div>
+                        <div><strong>Win Rate:</strong> {localStats.gamesPlayed > 0 ? Math.round((localStats.gamesWon / localStats.gamesPlayed) * 100) : 0}%</div>
+                        <div><strong>Best Time:</strong> {localStats.bestTime ? formatTime(localStats.bestTime) : 'N/A'}</div>
+                        <div><strong>Average Time:</strong> {avgTime > 0 ? formatTime(avgTime) : 'N/A'}</div>
+                      </div>
+                      
+                      <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>By Difficulty</h3>
+                      <div style={{ marginBottom: '20px', lineHeight: '1.8', fontSize: '14px' }}>
+                        {['easy', 'medium', 'hard'].map(diff => {
+                          const stats = localStats.statsByDifficulty[diff];
+                          const winRate = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
+                          return (
+                            <div key={diff}>
+                              <strong style={{ textTransform: 'capitalize' }}>{diff}:</strong> {stats.played} played, {stats.won} won ({winRate}%)
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>Global Stats</h3>
+                      {globalStats ? (
+                        <div style={{ marginBottom: '20px', lineHeight: '1.8' }}>
+                          <div><strong>Total Games Started:</strong> {globalStats.totalGamesStarted}</div>
+                          <div><strong>Total Games Won:</strong> {globalStats.totalGamesWon}</div>
+                          <div><strong>Global Win Rate:</strong> {globalStats.totalGamesStarted > 0 ? Math.round((globalStats.totalGamesWon / globalStats.totalGamesStarted) * 100) : 0}%</div>
+                          <div><strong>Global Avg Time:</strong> {globalStats.averageTime > 0 ? formatTime(globalStats.averageTime) : 'N/A'}</div>
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: '20px', fontStyle: 'italic' }}>Loading global stats...</div>
+                      )}
+                    </>
+                  );
+                })()}
+                
+                <button
+                  onClick={() => setShowStats(false)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    fontSize: '16px',
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Close
                 </button>
               </div>
             </div>
