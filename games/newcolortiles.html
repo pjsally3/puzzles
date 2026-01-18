@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grid Builder</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const COLORS = ['blue', 'green', 'red', 'yellow'];
+    const TILE_SIZE = 60;
+
+    const generatePuzzleForGrid = (rows, cols) => {
+      const numTiles = rows * cols;
+      const tiles = Array(numTiles).fill(null).map(() => [null, null, null, null]);
+      
+      for (let i = 0; i < numTiles; i++) {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        
+        if (row === 0) tiles[i][0] = COLORS[Math.floor(Math.random() * 4)];
+        if (col === cols - 1) tiles[i][1] = COLORS[Math.floor(Math.random() * 4)];
+        if (row === rows - 1) tiles[i][2] = COLORS[Math.floor(Math.random() * 4)];
+        if (col === 0) tiles[i][3] = COLORS[Math.floor(Math.random() * 4)];
+      }
+      
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols - 1; col++) {
+          const leftIdx = row * cols + col;
+          const rightIdx = leftIdx + 1;
+          const sharedColor = COLORS[Math.floor(Math.random() * 4)];
+          tiles[leftIdx][1] = sharedColor;
+          tiles[rightIdx][3] = sharedColor;
+        }
+      }
+      
+      for (let row = 0; row < rows - 1; row++) {
+        for (let col = 0; col < cols; col++) {
+          const topIdx = row * cols + col;
+          const bottomIdx = (row + 1) * cols + col;
+          const sharedColor = COLORS[Math.floor(Math.random() * 4)];
+          tiles[topIdx][2] = sharedColor;
+          tiles[bottomIdx][0] = sharedColor;
+        }
+      }
+      
+      return tiles;
+    };
+
+    const Tile = ({ edges, size, isDragging }) => {
+      if (!edges || edges.length !== 4) return null;
+      const [top, right, bottom, left] = edges;
+      
+      return (
+        <div 
+          style={{
+            width: size,
+            height: size,
+            position: 'relative',
+            background: '#f0f0f0',
+            opacity: isDragging ? 0.5 : 1,
+            cursor: 'grab',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+          }}
+        >
+          {/* Top triangle */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}>
+            <polygon points={`0,0 ${size},0 ${size/2},${size/2}`} fill={top} />
+          </svg>
+          
+          {/* Right triangle */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}>
+            <polygon points={`${size},0 ${size},${size} ${size/2},${size/2}`} fill={right} />
+          </svg>
+          
+          {/* Bottom triangle */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}>
+            <polygon points={`0,${size} ${size},${size} ${size/2},${size/2}`} fill={bottom} />
+          </svg>
+          
+          {/* Left triangle */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}>
+            <polygon points={`0,0 0,${size} ${size/2},${size/2}`} fill={left} />
+          </svg>
+          
+          {/* Black diagonals */}
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}>
+            <line x1="0" y1="0" x2={size} y2={size} stroke="black" strokeWidth="2" />
+            <line x1={size} y1="0" x2="0" y2={size} stroke="black" strokeWidth="2" />
+          </svg>
+          
+          {/* Black corners - positioned to overlap with adjacent tiles */}
+          <div style={{ position: 'absolute', top: -5, left: -5, width: 10, height: 10, background: 'black', borderRadius: '50%' }} />
+          <div style={{ position: 'absolute', top: -5, right: -5, width: 10, height: 10, background: 'black', borderRadius: '50%' }} />
+          <div style={{ position: 'absolute', bottom: -5, left: -5, width: 10, height: 10, background: 'black', borderRadius: '50%' }} />
+          <div style={{ position: 'absolute', bottom: -5, right: -5, width: 10, height: 10, background: 'black', borderRadius: '50%' }} />
+        </div>
+      );
+    };
+
+    function GridBuilder() {
+      const [rows, setRows] = useState(2);
+      const [cols, setCols] = useState(2);
+      const [activeRows, setActiveRows] = useState(2);
+      const [activeCols, setActiveCols] = useState(2);
+      const [difficulty, setDifficulty] = useState('medium'); // 'easy', 'medium', 'hard'
+      const [gameStarted, setGameStarted] = useState(false);
+      
+      const [solution, setSolution] = useState([]);
+      const [grid, setGrid] = useState([]);
+      const [rightSide, setRightSide] = useState([]);
+      const [tileToPosition, setTileToPosition] = useState({});
+      
+      const [draggedTile, setDraggedTile] = useState(null);
+      const [dragSource, setDragSource] = useState(null);
+      const [isComplete, setIsComplete] = useState(false);
+      const [lockedTiles, setLockedTiles] = useState([]);
+      
+      const [startTime, setStartTime] = useState(null);
+      const [elapsedTime, setElapsedTime] = useState(0);
+      const [timerInterval, setTimerInterval] = useState(null);
+      
+      const calculateEdgeCounts = () => {
+        const counts = {
+          top: { blue: 0, green: 0, red: 0, yellow: 0 },
+          right: { blue: 0, green: 0, red: 0, yellow: 0 },
+          bottom: { blue: 0, green: 0, red: 0, yellow: 0 },
+          left: { blue: 0, green: 0, red: 0, yellow: 0 },
+        };
+        
+        // Count edges from unused tiles (tiles still on right side)
+        rightSide.forEach(tileIdx => {
+          if (tileIdx !== null && solution[tileIdx]) {
+            const [top, right, bottom, left] = solution[tileIdx];
+            counts.top[top]++;
+            counts.right[right]++;
+            counts.bottom[bottom]++;
+            counts.left[left]++;
+          }
+        });
+        
+        return counts;
+      };
+      
+      useEffect(() => {
+        startGame();
+      }, []);
+      
+      useEffect(() => {
+        if (grid.length > 0) {
+          checkCompletion();
+        }
+      }, [grid]);
+
+      useEffect(() => {
+        if (startTime && !isComplete && gameStarted) {
+          const interval = setInterval(() => {
+            setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+          }, 1000);
+          setTimerInterval(interval);
+          return () => clearInterval(interval);
+        } else if (isComplete && timerInterval) {
+          clearInterval(timerInterval);
+          setTimerInterval(null);
+        }
+      }, [startTime, isComplete, gameStarted]);
+      
+      const startGame = () => {
+        const numTiles = rows * cols;
+        const newSolution = generatePuzzleForGrid(rows, cols);
+        setSolution(newSolution);
+        
+        // Calculate number of hint tiles based on difficulty
+        let numHints = 0;
+        if (difficulty === 'easy') {
+          numHints = Math.floor(numTiles * 0.25); // 25% rounded down
+        } else if (difficulty === 'medium') {
+          numHints = Math.floor(numTiles * 0.15); // 15% rounded down
+        }
+        // hard = 0 hints
+        
+        // Initialize grid and right side
+        const newGrid = Array(numTiles).fill(null);
+        const allTiles = Array.from({ length: numTiles }, (_, i) => i);
+        const shuffled = [...allTiles].sort(() => Math.random() - 0.5);
+        const rightSideArray = Array(numTiles).fill(null);
+        const positionMap = {};
+        shuffled.forEach((tileIdx, displayPos) => {
+          rightSideArray[displayPos] = tileIdx;
+          positionMap[tileIdx] = displayPos;
+        });
+        
+        // Place hint tiles (correct tile in correct position, locked)
+        const hintsToPlace = [];
+        if (numHints > 0) {
+          // Randomly select which positions get hints
+          const availablePositions = [...allTiles];
+          for (let i = 0; i < numHints; i++) {
+            const randomIndex = Math.floor(Math.random() * availablePositions.length);
+            const pos = availablePositions.splice(randomIndex, 1)[0];
+            hintsToPlace.push(pos);
+          }
+        }
+        
+        // Apply hints
+        const newLockedTiles = [];
+        hintsToPlace.forEach(pos => {
+          const correctTile = pos; // tile index equals position
+          newGrid[pos] = correctTile;
+          rightSideArray[positionMap[correctTile]] = null; // Remove from right side
+          newLockedTiles.push(pos);
+        });
+        
+        setGrid(newGrid);
+        setRightSide(rightSideArray);
+        setTileToPosition(positionMap);
+        setIsComplete(false);
+        setLockedTiles(newLockedTiles);
+        
+        // Set active dimensions to current slider values
+        setActiveRows(rows);
+        setActiveCols(cols);
+        setGameStarted(true);
+        
+        setStartTime(Date.now());
+        setElapsedTime(0);
+      };
+
+      const newGame = () => {
+        setGameStarted(false);
+        setGrid([]);
+        setRightSide([]);
+        setSolution([]);
+        setIsComplete(false);
+        setLockedTiles([]);
+        setTileToPosition({});
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          setTimerInterval(null);
+        }
+        setElapsedTime(0);
+        setStartTime(null);
+      };
+
+      const resetGame = () => {
+        const numTiles = activeRows * activeCols;
+        
+        // Build new grid preserving locked tiles
+        const newGrid = Array(numTiles).fill(null);
+        lockedTiles.forEach(pos => {
+          newGrid[pos] = grid[pos]; // Keep the locked tile in place
+        });
+        
+        // Build right side with all non-locked tiles
+        const allTiles = Array.from({ length: numTiles }, (_, i) => i);
+        const availableTiles = allTiles.filter(tile => !lockedTiles.includes(tile));
+        
+        const rightSideArray = Array(numTiles).fill(null);
+        const positionMap = {};
+        
+        // Place available tiles in their original positions on right side
+        availableTiles.forEach((tileIdx, idx) => {
+          rightSideArray[tileIdx] = tileIdx;
+          positionMap[tileIdx] = tileIdx;
+        });
+        
+        // Keep position map for locked tiles too
+        lockedTiles.forEach(pos => {
+          positionMap[pos] = pos;
+        });
+        
+        setGrid(newGrid);
+        setRightSide(rightSideArray);
+        setTileToPosition(positionMap);
+        setIsComplete(false);
+        // Keep lockedTiles unchanged
+        
+        setStartTime(Date.now());
+        setElapsedTime(0);
+      };
+
+      const quitGame = () => {
+        if (confirm('Are you sure you want to quit?')) {
+          setGameStarted(false);
+          setGrid([]);
+          setRightSide([]);
+          setSolution([]);
+          setIsComplete(false);
+          setLockedTiles([]);
+          setTileToPosition({});
+          if (timerInterval) {
+            clearInterval(timerInterval);
+            setTimerInterval(null);
+          }
+          setElapsedTime(0);
+          setStartTime(null);
+        }
+      };
+
+      const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      const handleHint = () => {
+        const emptyPositions = [];
+        grid.forEach((tile, pos) => {
+          if (tile === null) emptyPositions.push(pos);
+        });
+
+        if (emptyPositions.length === 0) return;
+
+        const shuffledPositions = [...emptyPositions].sort(() => Math.random() - 0.5);
+        
+        for (const pos of shuffledPositions) {
+          const correctTile = pos;
+          
+          if (rightSide.includes(correctTile)) {
+            if (validatePlacement(correctTile, pos)) {
+              const newGrid = [...grid];
+              newGrid[pos] = correctTile;
+              setGrid(newGrid);
+              
+              const rightSideIndex = rightSide.indexOf(correctTile);
+              const newRightSide = [...rightSide];
+              newRightSide[rightSideIndex] = null;
+              setRightSide(newRightSide);
+              
+              setLockedTiles([...lockedTiles, pos]);
+              return;
+            }
+          }
+        }
+        
+        alert('No valid hints available! Try rearranging your current tiles.');
+      };
+      
+      const checkCompletion = () => {
+        setIsComplete(grid.every(tile => tile !== null));
+      };
+      
+      const validatePlacement = (tileIdx, gridPos, gridToCheck = grid) => {
+        const tileEdges = solution[tileIdx];
+        const [top, right, bottom, left] = tileEdges;
+        
+        const COLS = activeCols;
+        const numTiles = activeRows * activeCols;
+        
+        if (gridPos >= COLS) {
+          const topNeighbor = gridToCheck[gridPos - COLS];
+          if (topNeighbor !== null) {
+            const neighborBottom = solution[topNeighbor][2];
+            if (top !== neighborBottom) return false;
+          }
+        }
+        
+        if ((gridPos + 1) % COLS !== 0) {
+          const rightNeighbor = gridToCheck[gridPos + 1];
+          if (rightNeighbor !== null) {
+            const neighborLeft = solution[rightNeighbor][3];
+            if (right !== neighborLeft) return false;
+          }
+        }
+        
+        if (gridPos < numTiles - COLS) {
+          const bottomNeighbor = gridToCheck[gridPos + COLS];
+          if (bottomNeighbor !== null) {
+            const neighborTop = solution[bottomNeighbor][0];
+            if (bottom !== neighborTop) return false;
+          }
+        }
+        
+        if (gridPos % COLS !== 0) {
+          const leftNeighbor = gridToCheck[gridPos - 1];
+          if (leftNeighbor !== null) {
+            const neighborRight = solution[leftNeighbor][1];
+            if (left !== neighborRight) return false;
+          }
+        }
+        
+        return true;
+      };
+      
+      const handleDragStart = (tileIdx, source) => {
+        if (source.type === 'grid' && lockedTiles.includes(source.index)) {
+          return;
+        }
+        setDraggedTile(tileIdx);
+        setDragSource(source);
+      };
+      
+      const handleDragEnd = () => {
+        setDraggedTile(null);
+        setDragSource(null);
+      };
+      
+      const handleDropOnGrid = (gridPos) => {
+        if (draggedTile === null) return;
+        if (grid[gridPos] !== null) return;
+        
+        let gridForValidation = [...grid];
+        if (dragSource.type === 'grid') {
+          gridForValidation[dragSource.index] = null;
+        }
+        
+        if (!validatePlacement(draggedTile, gridPos, gridForValidation)) {
+          return;
+        }
+        
+        const newGrid = [...gridForValidation];
+        newGrid[gridPos] = draggedTile;
+        setGrid(newGrid);
+        
+        if (dragSource.type === 'right') {
+          const newRightSide = [...rightSide];
+          newRightSide[dragSource.index] = null;
+          setRightSide(newRightSide);
+        }
+      };
+      
+      const handleDropOnRight = (targetPosition) => {
+        if (draggedTile === null) return;
+        if (dragSource.type === 'right') {
+          // Moving within right side - swap positions
+          const newRightSide = [...rightSide];
+          const sourceTile = newRightSide[dragSource.index];
+          const targetTile = newRightSide[targetPosition];
+          
+          newRightSide[dragSource.index] = targetTile;
+          newRightSide[targetPosition] = sourceTile;
+          
+          // Update position map
+          const newTileToPosition = { ...tileToPosition };
+          if (sourceTile !== null) newTileToPosition[sourceTile] = targetPosition;
+          if (targetTile !== null) newTileToPosition[targetTile] = dragSource.index;
+          
+          setRightSide(newRightSide);
+          setTileToPosition(newTileToPosition);
+          return;
+        }
+        
+        // Coming from grid - place in target position (if empty) or original position
+        let finalPosition = targetPosition;
+        if (rightSide[targetPosition] !== null) {
+          // Target occupied, use original position
+          finalPosition = tileToPosition[draggedTile];
+          if (finalPosition === undefined) return;
+        }
+        
+        const newRightSide = [...rightSide];
+        newRightSide[finalPosition] = draggedTile;
+        setRightSide(newRightSide);
+        
+        // Update position map
+        const newTileToPosition = { ...tileToPosition };
+        newTileToPosition[draggedTile] = finalPosition;
+        setTileToPosition(newTileToPosition);
+        
+        if (dragSource.type === 'grid') {
+          const newGrid = [...grid];
+          newGrid[dragSource.index] = null;
+          setGrid(newGrid);
+        }
+      };
+      
+      return (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          background: '#e8e8e8',
+          fontFamily: 'Arial, sans-serif',
+          padding: '10px',
+        }}>
+          <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+            
+            <div>
+              <h2 style={{ textAlign: 'center', marginBottom: '5px', fontSize: '18px' }}>Grid Builder</h2>
+              
+              <div style={{
+                display: 'flex',
+                gap: '15px',
+                justifyContent: 'center',
+                marginBottom: '5px',
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>
+                    Rows: {rows}
+                  </label>
+                  <input
+                    type="range"
+                    min="2"
+                    max="5"
+                    value={rows}
+                    onChange={(e) => setRows(parseInt(e.target.value))}
+                    disabled={gameStarted && !isComplete}
+                    style={{ width: '80px' }}
+                  />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>
+                    Columns: {cols}
+                  </label>
+                  <input
+                    type="range"
+                    min="2"
+                    max="5"
+                    value={cols}
+                    onChange={(e) => setCols(parseInt(e.target.value))}
+                    disabled={gameStarted && !isComplete}
+                    style={{ width: '80px' }}
+                  />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>
+                    {difficulty === 'easy' ? 'Easy' : difficulty === 'medium' ? 'Medium' : 'Hard'}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    value={difficulty === 'easy' ? 0 : difficulty === 'medium' ? 1 : 2}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setDifficulty(val === 0 ? 'easy' : val === 1 ? 'medium' : 'hard');
+                    }}
+                    disabled={gameStarted && !isComplete}
+                    style={{ width: '80px' }}
+                  />
+                </div>
+              </div>
+              
+              {gameStarted && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  marginBottom: '5px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#333',
+                }}>
+                  ⏱️ {formatTime(elapsedTime)}
+                </div>
+              )}
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${activeCols}, ${TILE_SIZE}px)`,
+                gridTemplateRows: `repeat(${activeRows}, ${TILE_SIZE}px)`,
+                gap: '0px',
+                background: 'white',
+                padding: '10px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              }}>
+                {grid.map((tileIdx, gridPos) => (
+                  <div
+                    key={gridPos}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDropOnGrid(gridPos)}
+                    style={{
+                      width: TILE_SIZE,
+                      height: TILE_SIZE,
+                      background: tileIdx === null ? '#ddd' : 'transparent',
+                      borderRadius: '3px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {tileIdx !== null && (
+                      <div
+                        draggable={!lockedTiles.includes(gridPos)}
+                        onDragStart={(e) => {
+                          handleDragStart(tileIdx, { type: 'grid', index: gridPos });
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                          cursor: lockedTiles.includes(gridPos) ? 'not-allowed' : 'grab',
+                          opacity: lockedTiles.includes(gridPos) ? 0.7 : 1,
+                          position: 'relative',
+                          outline: 'none',
+                        }}
+                      >
+                        <Tile 
+                          edges={solution[tileIdx]} 
+                          size={TILE_SIZE}
+                          isDragging={draggedTile === tileIdx}
+                        />
+                        {lockedTiles.includes(gridPos) && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '24px',
+                          }}>
+                            🔒
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{ 
+                marginTop: '10px', 
+                display: 'flex', 
+                gap: '8px',
+              }}>
+                <button
+                  onClick={startGame}
+                  disabled={gameStarted && !isComplete}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: (gameStarted && !isComplete) ? '#ccc' : '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: (gameStarted && !isComplete) ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Start
+                </button>
+                <button
+                  onClick={resetGame}
+                  disabled={!gameStarted}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: !gameStarted ? '#ccc' : '#2196F3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={handleHint}
+                  disabled={!gameStarted || isComplete}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: (!gameStarted || isComplete) ? '#ccc' : '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: (!gameStarted || isComplete) ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Hint
+                </button>
+                <button
+                  onClick={newGame}
+                  disabled={!gameStarted}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: !gameStarted ? '#ccc' : '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  New Game
+                </button>
+                <button
+                  onClick={quitGame}
+                  disabled={!gameStarted}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    fontSize: '13px',
+                    background: !gameStarted ? '#ccc' : '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Quit
+                </button>
+              </div>
+            </div>
+            
+            {isComplete ? (
+              <div style={{
+                minHeight: '400px',
+                minWidth: TILE_SIZE + 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <div style={{
+                  padding: '30px',
+                  background: '#4CAF50',
+                  color: 'white',
+                  textAlign: 'center',
+                  borderRadius: '10px',
+                  fontSize: '24px',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                }}>
+                  🎉 You Win! 🎉
+                  <div style={{ fontSize: '18px', marginTop: '10px' }}>
+                    Time: {formatTime(elapsedTime)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  minHeight: '300px',
+                  minWidth: TILE_SIZE + 30,
+                }}
+              >
+                <h2 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '16px' }}>Tiles</h2>
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  background: 'white',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                }}>
+                  {Array.from({ length: Math.ceil((activeRows * activeCols) / 5) }, (_, colIdx) => (
+                    <div key={colIdx} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}>
+                      {Array.from({ length: 5 }, (_, rowIdx) => {
+                        const tilePosition = colIdx * 5 + rowIdx;
+                        if (tilePosition >= activeRows * activeCols) return null;
+                        
+                        const tileIdx = rightSide[tilePosition];
+                        
+                        if (tileIdx === null) {
+                          return (
+                            <div
+                              key={tilePosition}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleDropOnRight(tilePosition)}
+                              style={{
+                                width: TILE_SIZE,
+                                height: TILE_SIZE,
+                                background: '#f0f0f0',
+                                border: '2px dashed #ccc',
+                                borderRadius: '3px',
+                              }}
+                            />
+                          );
+                        }
+                        
+                        return (
+                          <div
+                            key={tilePosition}
+                            draggable
+                            onDragStart={() => handleDragStart(tileIdx, { type: 'right', index: tilePosition })}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => handleDropOnRight(tilePosition)}
+                          >
+                            <Tile 
+                              edges={solution[tileIdx]} 
+                              size={TILE_SIZE}
+                              isDragging={draggedTile === tileIdx}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Information Grid */}
+                <div style={{ marginTop: '12px' }}>
+                  <h3 style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px' }}>Available Edges</h3>
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    background: 'white',
+                    fontSize: '11px',
+                  }}>
+                    <thead>
+                      <tr>
+                        <th style={{ border: '1px solid #ddd', padding: '4px', background: '#f5f5f5' }}></th>
+                        <th style={{ border: '1px solid #ddd', padding: '4px', background: 'blue', color: 'white' }}>Blue</th>
+                        <th style={{ border: '1px solid #ddd', padding: '4px', background: 'green', color: 'white' }}>Green</th>
+                        <th style={{ border: '1px solid #ddd', padding: '4px', background: 'red', color: 'white' }}>Red</th>
+                        <th style={{ border: '1px solid #ddd', padding: '4px', background: 'yellow', color: 'black' }}>Yellow</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const counts = calculateEdgeCounts();
+                        return (
+                          <>
+                            <tr>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', fontWeight: 'bold', background: '#f5f5f5' }}>Top</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.top.blue}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.top.green}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.top.red}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.top.yellow}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', fontWeight: 'bold', background: '#f5f5f5' }}>Bottom</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.bottom.blue}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.bottom.green}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.bottom.red}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.bottom.yellow}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', fontWeight: 'bold', background: '#f5f5f5' }}>Left</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.left.blue}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.left.green}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.left.red}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.left.yellow}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', fontWeight: 'bold', background: '#f5f5f5' }}>Right</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.right.blue}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.right.green}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.right.red}</td>
+                              <td style={{ border: '1px solid #ddd', padding: '4px', textAlign: 'center' }}>{counts.right.yellow}</td>
+                            </tr>
+                          </>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<GridBuilder />, document.getElementById('root'));
+  </script>
+</body>
+</html>
