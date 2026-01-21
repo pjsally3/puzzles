@@ -131,6 +131,30 @@
     const COLORS = ['blue', 'green', 'red', 'yellow'];
     const TILE_SIZE = 60;
 
+    // Difficulty presets with grid configurations
+    const DIFFICULTY_PRESETS = {
+      easy: [
+        { rows: 2, cols: 3, lockPercent: 0.33 },  // 2 locked
+        { rows: 2, cols: 4, lockPercent: 0.30 },  // 2-3 locked
+        { rows: 3, cols: 3, lockPercent: 0.25 },  // 2 locked
+      ],
+      medium: [
+        { rows: 2, cols: 5, lockPercent: 0.25 },  // 2-3 locked
+        { rows: 3, cols: 3, lockPercent: 0.10 },  // 0-1 locked
+        { rows: 3, cols: 4, lockPercent: 0.20 },  // 2-3 locked
+      ],
+      hard: [
+        { rows: 3, cols: 4, lockPercent: 0.05 },  // 0-1 locked
+        { rows: 3, cols: 5, lockPercent: 0.15 },  // 2-3 locked
+        { rows: 4, cols: 4, lockPercent: 0.15 },  // 2-3 locked
+      ],
+      extreme: [
+        { rows: 4, cols: 4, lockPercent: 0.05 },  // 0-1 locked
+        { rows: 4, cols: 5, lockPercent: 0.08 },  // 1-2 locked
+        { rows: 5, cols: 5, lockPercent: 0.10 },  // 2-3 locked
+      ]
+    };
+
     const generatePuzzleForGrid = (rows, cols) => {
       const numTiles = rows * cols;
       const tiles = Array(numTiles).fill(null).map(() => [null, null, null, null]);
@@ -221,11 +245,9 @@
     };
 
     function GridBuilder() {
-      const [rows, setRows] = useState(2);
-      const [cols, setCols] = useState(2);
+      const [difficulty, setDifficulty] = useState('easy');
       const [activeRows, setActiveRows] = useState(2);
-      const [activeCols, setActiveCols] = useState(2);
-      const [difficulty, setDifficulty] = useState('medium'); // 'easy', 'medium', 'hard'
+      const [activeCols, setActiveCols] = useState(3);
       const [gameStarted, setGameStarted] = useState(false);
       
       const [solution, setSolution] = useState([]);
@@ -245,6 +267,7 @@
       const [showStats, setShowStats] = useState(false);
       const [globalStats, setGlobalStats] = useState(null);
       const [hintsUsed, setHintsUsed] = useState(0);
+      const [lastConfig, setLastConfig] = useState(null); // Track last configuration used
       
       const calculateEdgeCounts = () => {
         const counts = {
@@ -292,18 +315,34 @@
       }, [startTime, isComplete, gameStarted]);
       
       const startGame = () => {
+        // Select random preset for chosen difficulty, avoiding last config if possible
+        const presets = DIFFICULTY_PRESETS[difficulty];
+        let preset;
+        
+        if (presets.length > 1 && lastConfig && lastConfig.difficulty === difficulty) {
+          // Filter out the last configuration
+          const availablePresets = presets.filter(p => 
+            !(p.rows === lastConfig.rows && p.cols === lastConfig.cols)
+          );
+          // If we have other options, use them; otherwise use any preset
+          const presetsToChooseFrom = availablePresets.length > 0 ? availablePresets : presets;
+          preset = presetsToChooseFrom[Math.floor(Math.random() * presetsToChooseFrom.length)];
+        } else {
+          // First game or difficulty changed, pick any preset
+          preset = presets[Math.floor(Math.random() * presets.length)];
+        }
+        
+        const { rows, cols, lockPercent } = preset;
+        
+        // Save this configuration for next time
+        setLastConfig({ difficulty, rows, cols });
+        
         const numTiles = rows * cols;
         const newSolution = generatePuzzleForGrid(rows, cols);
         setSolution(newSolution);
         
-        // Calculate number of hint tiles based on difficulty
-        let numHints = 0;
-        if (difficulty === 'easy') {
-          numHints = Math.floor(numTiles * 0.25); // 25% rounded down
-        } else if (difficulty === 'medium') {
-          numHints = Math.floor(numTiles * 0.15); // 15% rounded down
-        }
-        // hard = 0 hints
+        // Calculate number of hint tiles based on preset
+        const numHints = Math.floor(numTiles * lockPercent);
         
         // Initialize grid and right side (always 25 spaces)
         const newGrid = Array(numTiles).fill(null);
@@ -343,7 +382,7 @@
         setIsComplete(false);
         setLockedTiles(newLockedTiles);
         
-        // Set active dimensions to current slider values
+        // Set active dimensions
         setActiveRows(rows);
         setActiveCols(cols);
         setGameStarted(true);
@@ -354,22 +393,6 @@
         
         // Record game start
         recordGameStart(difficulty, `${rows}x${cols}`);
-      };
-
-      const newGame = () => {
-        setGameStarted(false);
-        setGrid([]);
-        setRightSide([]);
-        setSolution([]);
-        setIsComplete(false);
-        setLockedTiles([]);
-        setTileToPosition({});
-        if (timerInterval) {
-          clearInterval(timerInterval);
-          setTimerInterval(null);
-        }
-        setElapsedTime(0);
-        setStartTime(null);
       };
 
       const resetGame = () => {
@@ -404,10 +427,7 @@
         setTileToPosition(positionMap);
         setIsComplete(false);
         // Keep lockedTiles unchanged
-        
-        setStartTime(Date.now());
-        setElapsedTime(0);
-        setHintsUsed(0);
+        // Do NOT restart timer - let it continue
       };
 
       const quitGame = () => {
@@ -595,6 +615,7 @@
       
       const handleDropOnRight = (targetPosition) => {
         if (draggedTile === null) return;
+        
         if (dragSource.type === 'right') {
           // Moving within right side - swap positions
           const newRightSide = [...rightSide];
@@ -614,12 +635,25 @@
           return;
         }
         
-        // Coming from grid - place in target position (if empty) or original position
+        // Coming from grid - place in target position (if empty) or find first empty spot
+        const originalPosition = tileToPosition[draggedTile];
         let finalPosition = targetPosition;
+        
+        // If target is occupied, try to find an empty spot
         if (rightSide[targetPosition] !== null) {
-          // Target occupied, use original position
-          finalPosition = tileToPosition[draggedTile];
-          if (finalPosition === undefined) return;
+          // First try the original position
+          if (originalPosition !== undefined && rightSide[originalPosition] === null) {
+            finalPosition = originalPosition;
+          } else {
+            // Find first empty spot
+            const emptySpot = rightSide.findIndex(tile => tile === null);
+            if (emptySpot !== -1) {
+              finalPosition = emptySpot;
+            } else {
+              // No empty spots - shouldn't happen but use original position as fallback
+              finalPosition = originalPosition !== undefined ? originalPosition : targetPosition;
+            }
+          }
         }
         
         const newRightSide = [...rightSide];
@@ -655,55 +689,33 @@
               
               <div style={{
                 display: 'flex',
-                gap: '15px',
+                gap: '10px',
                 justifyContent: 'center',
                 marginBottom: '5px',
               }}>
-                <div style={{ textAlign: 'center' }}>
-                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>
-                    Rows: {rows}
-                  </label>
-                  <input
-                    type="range"
-                    min="2"
-                    max="5"
-                    value={rows}
-                    onChange={(e) => setRows(parseInt(e.target.value))}
+                {['easy', 'medium', 'hard', 'extreme'].map(level => (
+                  <button
+                    key={level}
+                    onClick={() => setDifficulty(level)}
                     disabled={gameStarted && !isComplete}
-                    style={{ width: '80px' }}
-                  />
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>
-                    Columns: {cols}
-                  </label>
-                  <input
-                    type="range"
-                    min="2"
-                    max="5"
-                    value={cols}
-                    onChange={(e) => setCols(parseInt(e.target.value))}
-                    disabled={gameStarted && !isComplete}
-                    style={{ width: '80px' }}
-                  />
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>
-                    {difficulty === 'easy' ? 'Easy' : difficulty === 'medium' ? 'Medium' : 'Hard'}
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="2"
-                    value={difficulty === 'easy' ? 0 : difficulty === 'medium' ? 1 : 2}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      setDifficulty(val === 0 ? 'easy' : val === 1 ? 'medium' : 'hard');
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      background: difficulty === level 
+                        ? (gameStarted && !isComplete ? '#ccc' : '#4CAF50')
+                        : (gameStarted && !isComplete ? '#ddd' : '#f0f0f0'),
+                      color: difficulty === level ? 'white' : '#333',
+                      border: difficulty === level ? '2px solid #2E7D32' : '2px solid #ccc',
+                      borderRadius: '5px',
+                      cursor: (gameStarted && !isComplete) ? 'not-allowed' : 'pointer',
+                      fontWeight: difficulty === level ? 'bold' : 'normal',
+                      textTransform: 'capitalize',
                     }}
-                    disabled={gameStarted && !isComplete}
-                    style={{ width: '80px' }}
-                  />
-                </div>
+                  >
+                    {level}
+                  </button>
+                ))}
               </div>
               
               {gameStarted && (
@@ -787,20 +799,19 @@
               }}>
                 <button
                   onClick={startGame}
-                  disabled={gameStarted && !isComplete}
                   style={{
                     flex: 1,
                     padding: '8px',
                     fontSize: '13px',
-                    background: (gameStarted && !isComplete) ? '#ccc' : '#4CAF50',
+                    background: '#4CAF50',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: (gameStarted && !isComplete) ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     fontWeight: 'bold',
                   }}
                 >
-                  Start
+                  {gameStarted ? 'New Game' : 'Start Game'}
                 </button>
                 <button
                   onClick={resetGame}
@@ -817,7 +828,7 @@
                     fontWeight: 'bold',
                   }}
                 >
-                  Reset
+                  Clear
                 </button>
                 <button
                   onClick={handleHint}
@@ -835,23 +846,6 @@
                   }}
                 >
                   Hint
-                </button>
-                <button
-                  onClick={newGame}
-                  disabled={!gameStarted}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: !gameStarted ? '#ccc' : '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  New Game
                 </button>
                 <button
                   onClick={quitGame}
@@ -1082,10 +1076,10 @@
               >
                 <h2 style={{ marginTop: 0, marginBottom: '20px' }}>How To Play</h2>
                 <p style={{ lineHeight: '1.6', marginBottom: '15px' }}>
-                  Place tiles where the colors match. Use the Hint if you need help. Use Reset if you need to start over (locked tiles stay).
+                  Place tiles where the colors match. Use the Hint if you need help. Use Clear to remove all unlocked tiles and try again (locked tiles and timer remain).
                 </p>
                 <p style={{ lineHeight: '1.6', marginBottom: '15px' }}>
-                  Easy mode starts you out with a number of locked tiles. Medium mode gives you fewer locked tiles and Hard mode starts you with no locked tiles.
+                  Easy mode starts you out with a number of locked tiles. Medium mode gives you fewer locked tiles and Hard mode starts you with even fewer. Extreme mode has the fewest locked tiles.
                 </p>
                 <p style={{ lineHeight: '1.6', marginBottom: '20px' }}>
                   <strong>Note:</strong> Hint will place a tile in the correct place if one is available. That does not mean the unlocked tiles around it are necessarily correct!
