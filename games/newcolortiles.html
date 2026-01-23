@@ -51,9 +51,10 @@
         statsByDifficulty: {
           easy: { played: 0, won: 0 },
           medium: { played: 0, won: 0 },
-          hard: { played: 0, won: 0 }
+          hard: { played: 0, won: 0 },
+          extreme: { played: 0, won: 0 }
         },
-        statsByGridSize: {} // Will store '2x2': { played, won, totalHints, bestTime }
+        statsByGridSize: {} // Still track for Firebase
       };
     };
 
@@ -134,19 +135,19 @@
     // Difficulty presets with grid configurations
     const DIFFICULTY_PRESETS = {
       easy: [
-        { rows: 2, cols: 3, lockPercent: 0.33 },  // 2 locked
+        { rows: 2, cols: 3, lockPercent: 0.17 },  // 1 locked (was 2)
         { rows: 2, cols: 4, lockPercent: 0.30 },  // 2-3 locked
         { rows: 3, cols: 3, lockPercent: 0.25 },  // 2 locked
       ],
       medium: [
         { rows: 2, cols: 5, lockPercent: 0.25 },  // 2-3 locked
-        { rows: 3, cols: 3, lockPercent: 0.10 },  // 0-1 locked
+        { rows: 3, cols: 3, lockPercent: 0.15 },  // 1 locked (was 0)
         { rows: 3, cols: 4, lockPercent: 0.20 },  // 2-3 locked
       ],
       hard: [
-        { rows: 3, cols: 4, lockPercent: 0.05 },  // 0-1 locked
-        { rows: 3, cols: 5, lockPercent: 0.15 },  // 2-3 locked
-        { rows: 4, cols: 4, lockPercent: 0.15 },  // 2-3 locked
+        { rows: 3, cols: 4, lockPercent: 0.10 },  // 1 locked
+        { rows: 3, cols: 5, lockPercent: 0.20 },  // 3 locked
+        { rows: 4, cols: 4, lockPercent: 0.20 },  // 3 locked
       ],
       extreme: [
         { rows: 4, cols: 4, lockPercent: 0.05 },  // 0-1 locked
@@ -342,7 +343,7 @@
         setSolution(newSolution);
         
         // Calculate number of hint tiles based on preset
-        const numHints = Math.floor(numTiles * lockPercent);
+        let numHints = Math.floor(numTiles * lockPercent);
         
         // Initialize grid and right side (always 25 spaces)
         const newGrid = Array(numTiles).fill(null);
@@ -355,26 +356,105 @@
           positionMap[tileIdx] = idx;
         });
         
-        // Place hint tiles (correct tile in correct position, locked)
-        const hintsToPlace = [];
-        if (numHints > 0) {
-          // Randomly select which positions get hints
-          const availablePositions = [...allTiles];
-          for (let i = 0; i < numHints; i++) {
-            const randomIndex = Math.floor(Math.random() * availablePositions.length);
-            const pos = availablePositions.splice(randomIndex, 1)[0];
-            hintsToPlace.push(pos);
+        // Helper function to check if a position has only one valid tile option
+        const findPositionWithOneOption = (currentGrid, availableTiles) => {
+          for (const pos of shuffled) {
+            if (currentGrid[pos] !== null) continue; // Already filled
+            
+            let validTileCount = 0;
+            let validTile = null;
+            
+            for (const tileIdx of availableTiles) {
+              // Create test grid
+              const testGrid = [...currentGrid];
+              testGrid[pos] = tileIdx;
+              
+              // Check if this tile is valid here
+              const tileEdges = newSolution[tileIdx];
+              const [top, right, bottom, left] = tileEdges;
+              let isValid = true;
+              
+              const COLS = cols;
+              
+              // Check top neighbor
+              if (pos >= COLS && currentGrid[pos - COLS] !== null) {
+                const neighborBottom = newSolution[currentGrid[pos - COLS]][2];
+                if (top !== neighborBottom) isValid = false;
+              }
+              
+              // Check right neighbor
+              if ((pos + 1) % COLS !== 0 && currentGrid[pos + 1] !== null) {
+                const neighborLeft = newSolution[currentGrid[pos + 1]][3];
+                if (right !== neighborLeft) isValid = false;
+              }
+              
+              // Check bottom neighbor
+              if (pos < numTiles - COLS && currentGrid[pos + COLS] !== null) {
+                const neighborTop = newSolution[currentGrid[pos + COLS]][0];
+                if (bottom !== neighborTop) isValid = false;
+              }
+              
+              // Check left neighbor
+              if (pos % COLS !== 0 && currentGrid[pos - 1] !== null) {
+                const neighborRight = newSolution[currentGrid[pos - 1]][1];
+                if (left !== neighborRight) isValid = false;
+              }
+              
+              if (isValid) {
+                validTileCount++;
+                validTile = tileIdx;
+                if (validTileCount > 1) break; // No need to check further
+              }
+            }
+            
+            if (validTileCount === 1) {
+              return { pos, tile: validTile };
+            }
           }
+          return null;
+        };
+        
+        // Place hint tiles
+        const hintsToPlace = [];
+        const newLockedTiles = [];
+        let availableTiles = [...allTiles];
+        
+        // Place random hints first (numHints - 1)
+        for (let i = 0; i < numHints - 1; i++) {
+          if (availableTiles.length === 0) break;
+          
+          const randomIndex = Math.floor(Math.random() * availableTiles.length);
+          const pos = availableTiles[randomIndex];
+          availableTiles.splice(randomIndex, 1);
+          
+          const correctTile = pos;
+          newGrid[pos] = correctTile;
+          rightSideArray[positionMap[correctTile]] = null;
+          newLockedTiles.push(pos);
         }
         
-        // Apply hints
-        const newLockedTiles = [];
-        hintsToPlace.forEach(pos => {
-          const correctTile = pos; // tile index equals position
-          newGrid[pos] = correctTile;
-          rightSideArray[positionMap[correctTile]] = null; // Remove from right side
-          newLockedTiles.push(pos);
-        });
+        // Try to place one hint at a position with only one valid option
+        if (numHints > 0 && availableTiles.length > 0) {
+          const remainingTiles = availableTiles.map(pos => pos); // Tiles still available
+          const oneOptionSpot = findPositionWithOneOption(newGrid, remainingTiles);
+          
+          if (oneOptionSpot) {
+            const { pos, tile } = oneOptionSpot;
+            newGrid[pos] = tile;
+            rightSideArray[positionMap[tile]] = null;
+            newLockedTiles.push(pos);
+          } else {
+            // Fallback: place one more random hint
+            if (availableTiles.length > 0) {
+              const randomIndex = Math.floor(Math.random() * availableTiles.length);
+              const pos = availableTiles[randomIndex];
+              const correctTile = pos;
+              newGrid[pos] = correctTile;
+              rightSideArray[positionMap[correctTile]] = null;
+              newLockedTiles.push(pos);
+            }
+          }
+        }
         
         setGrid(newGrid);
         setRightSide(rightSideArray);
@@ -901,26 +981,122 @@
             
             {isComplete ? (
               <div style={{
-                minHeight: '400px',
-                minWidth: TILE_SIZE + 40,
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.8)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                zIndex: 999,
               }}>
                 <div style={{
-                  padding: '30px',
-                  background: '#4CAF50',
-                  color: 'white',
+                  background: 'white',
+                  padding: '40px',
+                  borderRadius: '15px',
                   textAlign: 'center',
-                  borderRadius: '10px',
-                  fontSize: '24px',
-                  fontWeight: 'bold',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                  maxWidth: '500px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
                 }}>
-                  🎉 You Win! 🎉
-                  <div style={{ fontSize: '18px', marginTop: '10px' }}>
-                    Time: {formatTime(elapsedTime)}
+                  <div style={{
+                    fontSize: '48px',
+                    marginBottom: '20px',
+                  }}>
+                    🎉
                   </div>
+                  <h1 style={{
+                    margin: '0 0 10px 0',
+                    color: '#4CAF50',
+                    fontSize: '32px',
+                  }}>
+                    Victory!
+                  </h1>
+                  <p style={{
+                    fontSize: '18px',
+                    color: '#666',
+                    marginBottom: '30px',
+                    textTransform: 'capitalize',
+                  }}>
+                    {difficulty} - {activeRows}×{activeCols} completed in {formatTime(elapsedTime)}
+                  </p>
+                  
+                  {(() => {
+                    const localStats = getLocalStats();
+                    const diffStats = localStats.statsByDifficulty[difficulty];
+                    const winRate = diffStats.played > 0 ? Math.round((diffStats.won / diffStats.played) * 100) : 0;
+                    const avgTime = localStats.gamesWon > 0 
+                      ? Math.round(localStats.totalTime / localStats.gamesWon) 
+                      : 0;
+                    
+                    return (
+                      <div style={{
+                        background: '#f5f5f5',
+                        padding: '20px',
+                        borderRadius: '10px',
+                        marginBottom: '20px',
+                        textAlign: 'left',
+                      }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '15px', textAlign: 'center' }}>Your Overall Stats</h3>
+                        <div style={{ lineHeight: '1.8' }}>
+                          <div><strong>Total Games:</strong> {localStats.gamesPlayed}</div>
+                          <div><strong>Total Wins:</strong> {localStats.gamesWon}</div>
+                          <div><strong>Overall Win Rate:</strong> {localStats.gamesPlayed > 0 ? Math.round((localStats.gamesWon / localStats.gamesPlayed) * 100) : 0}%</div>
+                          <div><strong>Best Time:</strong> {localStats.bestTime ? formatTime(localStats.bestTime) : 'N/A'}</div>
+                          <div><strong>Average Time:</strong> {avgTime > 0 ? formatTime(avgTime) : 'N/A'}</div>
+                        </div>
+                        
+                        <div style={{
+                          marginTop: '15px',
+                          paddingTop: '15px',
+                          borderTop: '1px solid #ddd',
+                        }}>
+                          <div style={{ textAlign: 'center', marginBottom: '10px', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                            {difficulty} Difficulty Stats
+                          </div>
+                          <div style={{ lineHeight: '1.8' }}>
+                            <div><strong>Played:</strong> {diffStats.played}</div>
+                            <div><strong>Won:</strong> {diffStats.won}</div>
+                            <div><strong>Win Rate:</strong> {winRate}%</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
+                  <button
+                    onClick={() => {
+                      // Quit game - return to initial state
+                      setGameStarted(false);
+                      setGrid([]);
+                      setRightSide([]);
+                      setSolution([]);
+                      setIsComplete(false);
+                      setLockedTiles([]);
+                      setTileToPosition({});
+                      if (timerInterval) {
+                        clearInterval(timerInterval);
+                        setTimerInterval(null);
+                      }
+                      setElapsedTime(0);
+                      setStartTime(null);
+                      setHintsUsed(0);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '15px',
+                      fontSize: '18px',
+                      background: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Return to Puzzle
+                  </button>
                 </div>
               </div>
             ) : (
@@ -1150,36 +1326,15 @@
                       
                       <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>By Difficulty</h3>
                       <div style={{ marginBottom: '20px', lineHeight: '1.8', fontSize: '14px' }}>
-                        {['easy', 'medium', 'hard'].map(diff => {
+                        {['easy', 'medium', 'hard', 'extreme'].map(diff => {
                           const stats = localStats.statsByDifficulty[diff];
                           const winRate = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
                           return (
-                            <div key={diff}>
+                            <div key={diff} style={{ marginBottom: '8px' }}>
                               <strong style={{ textTransform: 'capitalize' }}>{diff}:</strong> {stats.played} played, {stats.won} won ({winRate}%)
                             </div>
                           );
                         })}
-                      </div>
-                      
-                      <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>By Grid Size</h3>
-                      <div style={{ marginBottom: '20px', lineHeight: '1.8', fontSize: '14px' }}>
-                        {Object.keys(localStats.statsByGridSize).sort().map(gridSize => {
-                          const stats = localStats.statsByGridSize[gridSize];
-                          const winRate = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
-                          const avgHints = stats.won > 0 ? (stats.totalHints / stats.won).toFixed(1) : '0';
-                          return (
-                            <div key={gridSize}>
-                              <strong>{gridSize}:</strong> {stats.played} played, {stats.won} won ({winRate}%)
-                              <br />
-                              <span style={{ marginLeft: '15px', fontSize: '12px', color: '#666' }}>
-                                Avg hints: {avgHints} | Best: {stats.bestTime ? formatTime(stats.bestTime) : 'N/A'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {Object.keys(localStats.statsByGridSize).length === 0 && (
-                          <div style={{ fontStyle: 'italic', color: '#999' }}>No games completed yet</div>
-                        )}
                       </div>
                       
                       <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>Global Stats</h3>
