@@ -367,20 +367,33 @@
           <rect x="258" y="220" width="78" height="106" rx="10" fill="url(#g2)" opacity="0.55"/>
           <circle cx="297" cy="334" r="4.5" fill="rgba(255,255,255,0.25)"/>
 
-          <!-- tiny “sparkles” -->
+          <!-- tiny "sparkles" -->
           <path d="M112 210l6 10 10 6-10 6-6 10-6-10-10-6 10-6 6-10Z" fill="rgba(255,255,255,0.14)"/>
           <path d="M332 160l4 7 7 4-7 4-4 7-4-7-7-4 7-4 4-7Z" fill="rgba(255,255,255,0.12)"/>
         </svg>
       </div>
     </section>
-<div style="text-align: center; padding: 20px; background: #f0f0f0; border-radius: 10px;">
-  <h3 style="margin: 0 0 10px 0;">Website Visits</h3>
-  <div style="font-size: 36px; font-weight: bold; color: #4CAF50;">
-    <span id="visit-count">...</span>
-  </div>
-</div>
+
+    <!-- Visit Counter -->
+    <div style="
+      text-align: center; 
+      padding: 18px; 
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: var(--radius2);
+      margin-top: 18px;
+      box-shadow: 0 10px 22px rgba(0,0,0,.22);
+    ">
+      <div style="color: var(--muted); font-size: 13px; margin-bottom: 8px; letter-spacing: 0.5px;">
+        TOTAL WEBSITE VISITS
+      </div>
+      <div style="font-size: 42px; font-weight: bold; background: linear-gradient(145deg, rgba(120,170,255,.9), rgba(255,190,120,.75)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+        <span id="visit-count">...</span>
+      </div>
+    </div>
+
     <div class="footer">
-      <span>Tip: On iPad, tap Share → “Add to Home Screen” for an app-like experience.</span>
+      <span>Tip: On iPad, tap Share → "Add to Home Screen" for an app-like experience.</span>
     </div>
   </div>
 </body>
