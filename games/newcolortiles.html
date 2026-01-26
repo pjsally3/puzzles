@@ -43,19 +43,39 @@
     // Stats helper functions
     const getLocalStats = () => {
       const stats = localStorage.getItem('gridBuilderStats');
-      return stats ? JSON.parse(stats) : {
-        gamesPlayed: 0,
-        gamesWon: 0,
-        totalTime: 0,
-        bestTime: null,
-        statsByDifficulty: {
-          easy: { played: 0, won: 0 },
-          medium: { played: 0, won: 0 },
-          hard: { played: 0, won: 0 },
-          extreme: { played: 0, won: 0 }
-        },
-        statsByGridSize: {} // Still track for Firebase
-      };
+      if (!stats) {
+        return {
+          gamesPlayed: 0,
+          gamesWon: 0,
+          totalTime: 0,
+          bestTime: null,
+          statsByDifficulty: {
+            easy: { played: 0, won: 0, totalTime: 0, bestTime: null },
+            medium: { played: 0, won: 0, totalTime: 0, bestTime: null },
+            hard: { played: 0, won: 0, totalTime: 0, bestTime: null },
+            extreme: { played: 0, won: 0, totalTime: 0, bestTime: null }
+          },
+          statsByGridSize: {}
+        };
+      }
+      
+      const parsedStats = JSON.parse(stats);
+      
+      // Migrate old stats to include time fields if missing
+      ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
+        if (!parsedStats.statsByDifficulty[diff]) {
+          parsedStats.statsByDifficulty[diff] = { played: 0, won: 0, totalTime: 0, bestTime: null };
+        } else {
+          if (parsedStats.statsByDifficulty[diff].totalTime === undefined) {
+            parsedStats.statsByDifficulty[diff].totalTime = 0;
+          }
+          if (parsedStats.statsByDifficulty[diff].bestTime === undefined) {
+            parsedStats.statsByDifficulty[diff].bestTime = null;
+          }
+        }
+      });
+      
+      return parsedStats;
     };
 
     const saveLocalStats = (stats) => {
@@ -95,9 +115,17 @@
       localStats.gamesWon++;
       localStats.totalTime += timeInSeconds;
       localStats.statsByDifficulty[difficulty].won++;
+      localStats.statsByDifficulty[difficulty].totalTime += timeInSeconds;
       
+      // Update overall best time
       if (localStats.bestTime === null || timeInSeconds < localStats.bestTime) {
         localStats.bestTime = timeInSeconds;
+      }
+      
+      // Update difficulty-specific best time
+      if (localStats.statsByDifficulty[difficulty].bestTime === null || 
+          timeInSeconds < localStats.statsByDifficulty[difficulty].bestTime) {
+        localStats.statsByDifficulty[difficulty].bestTime = timeInSeconds;
       }
       
       // Update grid size stats
@@ -356,104 +384,20 @@
           positionMap[tileIdx] = idx;
         });
         
-        // Helper function to check if a position has only one valid tile option
-        const findPositionWithOneOption = (currentGrid, availableTiles) => {
-          for (const pos of shuffled) {
-            if (currentGrid[pos] !== null) continue; // Already filled
-            
-            let validTileCount = 0;
-            let validTile = null;
-            
-            for (const tileIdx of availableTiles) {
-              // Create test grid
-              const testGrid = [...currentGrid];
-              testGrid[pos] = tileIdx;
-              
-              // Check if this tile is valid here
-              const tileEdges = newSolution[tileIdx];
-              const [top, right, bottom, left] = tileEdges;
-              let isValid = true;
-              
-              const COLS = cols;
-              
-              // Check top neighbor
-              if (pos >= COLS && currentGrid[pos - COLS] !== null) {
-                const neighborBottom = newSolution[currentGrid[pos - COLS]][2];
-                if (top !== neighborBottom) isValid = false;
-              }
-              
-              // Check right neighbor
-              if ((pos + 1) % COLS !== 0 && currentGrid[pos + 1] !== null) {
-                const neighborLeft = newSolution[currentGrid[pos + 1]][3];
-                if (right !== neighborLeft) isValid = false;
-              }
-              
-              // Check bottom neighbor
-              if (pos < numTiles - COLS && currentGrid[pos + COLS] !== null) {
-                const neighborTop = newSolution[currentGrid[pos + COLS]][0];
-                if (bottom !== neighborTop) isValid = false;
-              }
-              
-              // Check left neighbor
-              if (pos % COLS !== 0 && currentGrid[pos - 1] !== null) {
-                const neighborRight = newSolution[currentGrid[pos - 1]][1];
-                if (left !== neighborRight) isValid = false;
-              }
-              
-              if (isValid) {
-                validTileCount++;
-                validTile = tileIdx;
-                if (validTileCount > 1) break; // No need to check further
-              }
-            }
-            
-            if (validTileCount === 1) {
-              return { pos, tile: validTile };
-            }
-          }
-          return null;
-        };
-        
-        // Place hint tiles
-        const hintsToPlace = [];
+        // Place hint tiles randomly
         const newLockedTiles = [];
-        let availableTiles = [...allTiles];
+        const availablePositions = [...allTiles];
         
-        // Place random hints first (numHints - 1)
-        for (let i = 0; i < numHints - 1; i++) {
-          if (availableTiles.length === 0) break;
+        for (let i = 0; i < numHints; i++) {
+          if (availablePositions.length === 0) break;
           
-          const randomIndex = Math.floor(Math.random() * availableTiles.length);
-          const pos = availableTiles[randomIndex];
-          availableTiles.splice(randomIndex, 1);
+          const randomIndex = Math.floor(Math.random() * availablePositions.length);
+          const pos = availablePositions.splice(randomIndex, 1)[0];
           
-          const correctTile = pos;
+          const correctTile = pos; // tile index equals position
           newGrid[pos] = correctTile;
           rightSideArray[positionMap[correctTile]] = null;
           newLockedTiles.push(pos);
-        }
-        
-        // Try to place one hint at a position with only one valid option
-        if (numHints > 0 && availableTiles.length > 0) {
-          const remainingTiles = availableTiles.map(pos => pos); // Tiles still available
-          const oneOptionSpot = findPositionWithOneOption(newGrid, remainingTiles);
-          
-          if (oneOptionSpot) {
-            const { pos, tile } = oneOptionSpot;
-            newGrid[pos] = tile;
-            rightSideArray[positionMap[tile]] = null;
-            newLockedTiles.push(pos);
-          } else {
-            // Fallback: place one more random hint
-            if (availableTiles.length > 0) {
-              const randomIndex = Math.floor(Math.random() * availableTiles.length);
-              const pos = availableTiles[randomIndex];
-              const correctTile = pos;
-              newGrid[pos] = correctTile;
-              rightSideArray[positionMap[correctTile]] = null;
-              newLockedTiles.push(pos);
-            }
-          }
         }
         
         setGrid(newGrid);
@@ -873,109 +817,142 @@
               </div>
               
               <div style={{ 
-                marginTop: '10px', 
-                display: 'flex', 
-                gap: '8px',
+                marginTop: '10px',
               }}>
-                <button
-                  onClick={startGame}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  {gameStarted ? 'New Game' : 'Start Game'}
-                </button>
-                <button
-                  onClick={resetGame}
-                  disabled={!gameStarted}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: !gameStarted ? '#ccc' : '#2196F3',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={handleHint}
-                  disabled={!gameStarted || isComplete}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: (!gameStarted || isComplete) ? '#ccc' : '#FF9800',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: (!gameStarted || isComplete) ? 'not-allowed' : 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Hint
-                </button>
-                <button
-                  onClick={quitGame}
-                  disabled={!gameStarted}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: !gameStarted ? '#ccc' : '#f44336',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: !gameStarted ? 'not-allowed' : 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Quit
-                </button>
-                <button
-                  onClick={() => setShowHowToPlay(true)}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#9C27B0',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  How To Play
-                </button>
-                <button
-                  onClick={openStatsDialog}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    fontSize: '13px',
-                    background: '#00BCD4',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  Stats
-                </button>
+                {/* First row: New Game, Clear, Hint, Quit */}
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  marginBottom: '8px',
+                }}>
+                  <button
+                    onClick={startGame}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {gameStarted ? 'New Game' : 'Start Game'}
+                  </button>
+                  <button
+                    onClick={resetGame}
+                    disabled={!gameStarted}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: !gameStarted ? '#ccc' : '#2196F3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: !gameStarted ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={handleHint}
+                    disabled={!gameStarted || isComplete}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: (!gameStarted || isComplete) ? '#ccc' : '#FF9800',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: (!gameStarted || isComplete) ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Hint
+                  </button>
+                  <button
+                    onClick={quitGame}
+                    disabled={!gameStarted}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: !gameStarted ? '#ccc' : '#f44336',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: !gameStarted ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Quit
+                  </button>
+                </div>
+                
+                {/* Second row: How To Play, Stats, Clear Stats */}
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                }}>
+                  <button
+                    onClick={() => setShowHowToPlay(true)}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: '#9C27B0',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    How To Play
+                  </button>
+                  <button
+                    onClick={openStatsDialog}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: '#00BCD4',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Stats
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear all stats? This cannot be undone.')) {
+                        localStorage.removeItem('gridBuilderStats');
+                        alert('All stats have been cleared!');
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: '#795548',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Clear Stats
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -986,79 +963,156 @@
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: 'rgba(0,0,0,0.8)',
+                background: 'rgba(0,0,0,0.85)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 zIndex: 999,
               }}>
                 <div style={{
-                  background: 'white',
-                  padding: '40px',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)',
+                  padding: '30px',
                   borderRadius: '15px',
                   textAlign: 'center',
                   maxWidth: '500px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                  border: '3px solid #4CAF50',
                 }}>
                   <div style={{
                     fontSize: '48px',
-                    marginBottom: '20px',
+                    marginBottom: '5px',
                   }}>
-                    🎉
+                    🏆
                   </div>
                   <h1 style={{
-                    margin: '0 0 10px 0',
-                    color: '#4CAF50',
-                    fontSize: '32px',
+                    margin: '0 0 3px 0',
+                    color: '#2E7D32',
+                    fontSize: '36px',
+                    fontWeight: 'bold',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
                   }}>
-                    Victory!
+                    VICTORY!
                   </h1>
-                  <p style={{
-                    fontSize: '18px',
-                    color: '#666',
-                    marginBottom: '30px',
+                  
+                  <div style={{
+                    background: (() => {
+                      const colors = {
+                        easy: '#4CAF50',
+                        medium: '#FF9800',
+                        hard: '#FF5722',
+                        extreme: '#9C27B0'
+                      };
+                      return colors[difficulty];
+                    })(),
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    margin: '15px auto',
                     textTransform: 'capitalize',
+                    display: 'inline-block',
                   }}>
-                    {difficulty} - {activeRows}×{activeCols} completed in {formatTime(elapsedTime)}
-                  </p>
+                    {difficulty} • {activeRows}×{activeCols} • {formatTime(elapsedTime)}
+                  </div>
                   
                   {(() => {
                     const localStats = getLocalStats();
                     const diffStats = localStats.statsByDifficulty[difficulty];
                     const winRate = diffStats.played > 0 ? Math.round((diffStats.won / diffStats.played) * 100) : 0;
-                    const avgTime = localStats.gamesWon > 0 
-                      ? Math.round(localStats.totalTime / localStats.gamesWon) 
-                      : 0;
+                    const diffAvgTime = diffStats.won > 0 ? Math.round(diffStats.totalTime / diffStats.won) : 0;
                     
                     return (
                       <div style={{
-                        background: '#f5f5f5',
+                        background: 'white',
                         padding: '20px',
                         borderRadius: '10px',
-                        marginBottom: '20px',
+                        marginBottom: '15px',
                         textAlign: 'left',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
                       }}>
-                        <h3 style={{ marginTop: 0, marginBottom: '15px', textAlign: 'center' }}>Your Overall Stats</h3>
-                        <div style={{ lineHeight: '1.8' }}>
-                          <div><strong>Total Games:</strong> {localStats.gamesPlayed}</div>
-                          <div><strong>Total Wins:</strong> {localStats.gamesWon}</div>
-                          <div><strong>Overall Win Rate:</strong> {localStats.gamesPlayed > 0 ? Math.round((localStats.gamesWon / localStats.gamesPlayed) * 100) : 0}%</div>
-                          <div><strong>Best Time:</strong> {localStats.bestTime ? formatTime(localStats.bestTime) : 'N/A'}</div>
-                          <div><strong>Average Time:</strong> {avgTime > 0 ? formatTime(avgTime) : 'N/A'}</div>
+                        {/* Difficulty Stats */}
+                        <h3 style={{ 
+                          marginTop: 0, 
+                          marginBottom: '12px', 
+                          textAlign: 'center',
+                          fontSize: '16px',
+                          color: '#333',
+                          textTransform: 'capitalize',
+                        }}>
+                          {difficulty} Level Stats
+                        </h3>
+                        <div style={{ 
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr 1fr',
+                          gap: '8px',
+                          marginBottom: '15px',
+                        }}>
+                          <div style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Played</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#333' }}>{diffStats.played}</div>
+                          </div>
+                          <div style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Won</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>{diffStats.won}</div>
+                          </div>
+                          <div style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Win Rate</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#FF9800' }}>{winRate}%</div>
+                          </div>
+                        </div>
+                        <div style={{ 
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '8px',
+                          marginBottom: '15px',
+                        }}>
+                          <div style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Best Time</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2196F3' }}>
+                              {diffStats.bestTime ? formatTime(diffStats.bestTime) : 'N/A'}
+                            </div>
+                          </div>
+                          <div style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Avg Time</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#9C27B0' }}>
+                              {diffAvgTime > 0 ? formatTime(diffAvgTime) : 'N/A'}
+                            </div>
+                          </div>
                         </div>
                         
+                        {/* Overall Stats */}
                         <div style={{
-                          marginTop: '15px',
-                          paddingTop: '15px',
-                          borderTop: '1px solid #ddd',
+                          paddingTop: '12px',
+                          borderTop: '2px solid #e0e0e0',
                         }}>
-                          <div style={{ textAlign: 'center', marginBottom: '10px', fontWeight: 'bold', textTransform: 'capitalize' }}>
-                            {difficulty} Difficulty Stats
-                          </div>
-                          <div style={{ lineHeight: '1.8' }}>
-                            <div><strong>Played:</strong> {diffStats.played}</div>
-                            <div><strong>Won:</strong> {diffStats.won}</div>
-                            <div><strong>Win Rate:</strong> {winRate}%</div>
+                          <h3 style={{ 
+                            marginTop: 0, 
+                            marginBottom: '10px', 
+                            textAlign: 'center',
+                            fontSize: '14px',
+                            color: '#666',
+                          }}>
+                            Overall Stats
+                          </h3>
+                          <div style={{ 
+                            display: 'flex',
+                            justifyContent: 'space-around',
+                          }}>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Total Games</div>
+                              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>{localStats.gamesPlayed}</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Total Wins</div>
+                              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4CAF50' }}>{localStats.gamesWon}</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>Win Rate</div>
+                              <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#FF9800' }}>
+                                {localStats.gamesPlayed > 0 ? Math.round((localStats.gamesWon / localStats.gamesPlayed) * 100) : 0}%
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1085,14 +1139,15 @@
                     }}
                     style={{
                       width: '100%',
-                      padding: '15px',
-                      fontSize: '18px',
+                      padding: '12px',
+                      fontSize: '16px',
                       background: '#4CAF50',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontWeight: 'bold',
+                      boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
                     }}
                   >
                     Return to Puzzle
