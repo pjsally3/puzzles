@@ -237,6 +237,49 @@
       background: rgba(255,255,255,.05);
     }
   </style>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+  // Initialize Firebase (same config as your game)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4UVYiRmXS-byupCIJgD4BH2Dq4orkA7w",
+    authDomain: "pjpuzzles-4ee57.firebaseapp.com",
+    projectId: "pjpuzzles-4ee57",
+    storageBucket: "pjpuzzles-4ee57.firebasestorage.app",
+    messagingSenderId: "847724129290",
+    appId: "1:847724129290:web:e40a80245d1dae0a7103f3"
+  };
+  
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  
+  // Increment and display visit counter
+  async function updateVisitCounter() {
+    try {
+      const counterRef = db.collection('counters').doc('websiteVisits');
+      const doc = await counterRef.get();
+      
+      let count = doc.exists ? doc.data().count : 0;
+      count++;
+      
+      // Update Firebase
+      await counterRef.set({ count: count });
+      
+      // Display on page
+      const element = document.getElementById('visit-count');
+      if (element) {
+        element.textContent = count.toLocaleString(); // Formats with commas: 1,234
+      }
+    } catch (error) {
+      console.error('Error updating visit counter:', error);
+    }
+  }
+  
+  // Run when page loads
+  updateVisitCounter();
+</script>
 </head>
 <body>
   <div class="wrap">
@@ -330,7 +373,12 @@
         </svg>
       </div>
     </section>
-
+<div style="text-align: center; padding: 20px; background: #f0f0f0; border-radius: 10px;">
+  <h3 style="margin: 0 0 10px 0;">Website Visits</h3>
+  <div style="font-size: 36px; font-weight: bold; color: #4CAF50;">
+    <span id="visit-count">...</span>
+  </div>
+</div>
     <div class="footer">
       <span>Tip: On iPad, tap Share → “Add to Home Screen” for an app-like experience.</span>
     </div>
