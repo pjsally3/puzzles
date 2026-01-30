@@ -297,6 +297,7 @@
       const [globalStats, setGlobalStats] = useState(null);
       const [hintsUsed, setHintsUsed] = useState(0);
       const [lastConfig, setLastConfig] = useState(null); // Track last configuration used
+      const [hasBookmark, setHasBookmark] = useState(false); // Track if bookmark exists
       
       const calculateEdgeCounts = () => {
         const counts = {
@@ -322,6 +323,9 @@
       
       useEffect(() => {
         // Don't auto-start anymore - let user configure first
+        // Check for existing bookmark
+        const bookmark = localStorage.getItem('gridBuilderBookmark');
+        setHasBookmark(!!bookmark);
       }, []);
       
       useEffect(() => {
@@ -511,6 +515,71 @@
         setShowStats(true);
         const stats = await fetchGlobalStats();
         setGlobalStats(stats);
+      };
+
+      const saveBookmark = () => {
+        if (!gameStarted) {
+          alert('No game in progress to bookmark!');
+          return;
+        }
+
+        const bookmark = {
+          difficulty,
+          activeRows,
+          activeCols,
+          solution,
+          grid,
+          rightSide,
+          tileToPosition,
+          lockedTiles,
+          elapsedTime,
+          hintsUsed,
+          isComplete,
+          timestamp: Date.now()
+        };
+
+        localStorage.setItem('gridBuilderBookmark', JSON.stringify(bookmark));
+        setHasBookmark(true);
+        // No alert - silent save
+      };
+
+      const useBookmark = () => {
+        const bookmarkData = localStorage.getItem('gridBuilderBookmark');
+        if (!bookmarkData) {
+          alert('No bookmark found!');
+          return;
+        }
+
+        // Confirm BEFORE restoring
+        if (gameStarted && !confirm('Restore bookmarked game? This will replace your current game.')) {
+          return;
+        }
+
+        try {
+          const bookmark = JSON.parse(bookmarkData);
+          
+          // Restore all game state
+          setDifficulty(bookmark.difficulty);
+          setActiveRows(bookmark.activeRows);
+          setActiveCols(bookmark.activeCols);
+          setSolution(bookmark.solution);
+          setGrid(bookmark.grid);
+          setRightSide(bookmark.rightSide);
+          setTileToPosition(bookmark.tileToPosition);
+          setLockedTiles(bookmark.lockedTiles);
+          setElapsedTime(bookmark.elapsedTime);
+          setHintsUsed(bookmark.hintsUsed);
+          setIsComplete(bookmark.isComplete);
+          setGameStarted(true);
+          
+          // Restart timer from bookmarked time
+          setStartTime(Date.now() - (bookmark.elapsedTime * 1000));
+          
+          // No alert after - user can see it worked
+        } catch (error) {
+          console.error('Error restoring bookmark:', error);
+          alert('Error restoring bookmark. It may be corrupted.');
+        }
       };
 
       const handleHint = () => {
@@ -894,7 +963,7 @@
                   </button>
                 </div>
                 
-                {/* Second row: How To Play, Stats, Clear Stats */}
+                {/* Second row: How To Play, Stats, Clear Stats, Bookmark, Use Bookmark */}
                 <div style={{
                   display: 'flex',
                   gap: '8px',
@@ -951,6 +1020,40 @@
                     }}
                   >
                     Clear Stats
+                  </button>
+                  <button
+                    onClick={saveBookmark}
+                    disabled={!gameStarted}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: !gameStarted ? '#ccc' : '#673AB7',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: !gameStarted ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Bookmark
+                  </button>
+                  <button
+                    onClick={useBookmark}
+                    disabled={!hasBookmark}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      fontSize: '13px',
+                      background: !hasBookmark ? '#ccc' : '#E91E63',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: !hasBookmark ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Go Back to Bookmark
                   </button>
                 </div>
               </div>
