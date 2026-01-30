@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Word Chain Game</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -276,6 +279,19 @@
     <div id="banner"></div>
 
     <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyD4UVYiRmXS-byupCIJgD4BH2Dq4orkA7w",
+            authDomain: "pjpuzzles-4ee57.firebaseapp.com",
+            projectId: "pjpuzzles-4ee57",
+            storageBucket: "pjpuzzles-4ee57.firebasestorage.app",
+            messagingSenderId: "847724129290",
+            appId: "1:847724129290:web:e40a80245d1dae0a7103f3"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         let words = [];
         let chain = [];
         let nodes = [];
@@ -881,7 +897,7 @@
             return finalScore;
         }
 
-        function checkWin() {
+        async function checkWin() {
             const letterList = document.getElementById('letters');
             if (letterList.children.length === 0) {
                 gameActive = false;
@@ -893,6 +909,16 @@
                 
                 const difficultyInfo = calculateDifficulty();
                 const score = calculateScore(elapsed, errors, difficultyInfo);
+                
+                // TRACK GAME WON IN FIREBASE
+                try {
+                    await db.collection('wordchain_stats').add({
+                        event: 'game_won',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Error recording game won:', error);
+                }
                 
                 let html = '<div style="font-size: 32px; margin-bottom: 20px;">Congratulations!</div>';
                 html += '<div style="font-size: 28px; color: #FFD700; margin: 15px 0;"><strong>Score: ' + score + '</strong></div>';
@@ -967,7 +993,7 @@
             }
         }
 
-        function initGame() {
+        async function initGame() {
             chain = findWordChain();
             if (!chain) {
                 document.getElementById('loading').textContent = 'Error: Could not generate word chain';
@@ -976,6 +1002,16 @@
             
             gameActive = true;
             const edges = buildGraph();
+            
+            // TRACK GAME STARTED IN FIREBASE
+            try {
+                await db.collection('wordchain_stats').add({
+                    event: 'game_started',
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (error) {
+                console.error('Error recording game start:', error);
+            }
             
             document.getElementById('loading').style.display = 'none';
             document.getElementById('stats').style.display = 'block';
