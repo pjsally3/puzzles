@@ -322,6 +322,10 @@
 
         async function loadWords() {
             try {
+                // Show stats div immediately and display global count
+                document.getElementById('stats').style.display = 'block';
+                updateGlobalStatsDisplay(); // Show "..." or 0 initially
+                
                 // Fetch global games completed
                 await fetchGlobalGamesCompleted();
                 
@@ -352,6 +356,8 @@
         
         function updateGlobalStatsDisplay() {
             const statsDiv = document.getElementById('stats');
+            if (!statsDiv) return; // Stats div not ready yet
+            
             let globalSpan = document.getElementById('global-games');
             if (!globalSpan) {
                 globalSpan = document.createElement('span');
@@ -359,7 +365,10 @@
                 globalSpan.style.marginLeft = '30px';
                 statsDiv.appendChild(globalSpan);
             }
-            globalSpan.innerHTML = '🏆 <span style="color: #4CAF50;">' + globalGamesCompleted.toLocaleString() + '</span> completed worldwide';
+            
+            // Show count or loading state
+            const displayCount = globalGamesCompleted > 0 ? globalGamesCompleted.toLocaleString() : '...';
+            globalSpan.innerHTML = '🏆 <span style="color: #4CAF50;">' + displayCount + '</span> completed worldwide';
         }
 
         function findWordChain() {
@@ -411,7 +420,7 @@
                 userLetter: null
             }));
 
-            positionNodes();
+            // Don't position nodes here - will be done after display is set
 
             const edges = [];
             const colors = ['green', 'blue', 'red'];
@@ -488,12 +497,23 @@
 
         function updateWordDisplay(letter) {
             const positions = letterPositions[letter];
+            if (!positions || positions.length === 0) {
+                console.warn('No positions found for letter:', letter);
+                return;
+            }
+            
+            // Update each position explicitly
             positions.forEach(pos => {
-                const selector = '.word-letter[data-word-idx="' + pos.wordIdx + '"][data-letter-idx="' + pos.letterIdx + '"]';
-                const letterSpan = document.querySelector(selector);
-                if (letterSpan) {
-                    letterSpan.textContent = letter;
-                }
+                const wordIdx = pos.wordIdx;
+                const letterIdx = pos.letterIdx;
+                
+                // Find the specific letter span
+                const allSpans = document.querySelectorAll('.word-letter');
+                allSpans.forEach(span => {
+                    if (span.dataset.wordIdx == wordIdx && span.dataset.letterIdx == letterIdx) {
+                        span.textContent = letter;
+                    }
+                });
             });
         }
 
@@ -1050,10 +1070,12 @@
             
             displayWords();
             
+            // Wait for layout to settle, then recalculate positions and draw
             setTimeout(function() {
+                positionNodes(); // Recalculate node positions now that container is visible
                 drawGraph(edges);
                 displayLetterList();
-            }, 100);
+            }, 150);
         }
 
         loadWords();
