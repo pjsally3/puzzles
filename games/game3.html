@@ -272,7 +272,7 @@
             <div id="controls">
                 <button class="control-btn" onclick="nextPuzzle()">Next</button>
                 <button class="control-btn reveal" onclick="revealAll()">Reveal</button>
-                <button class="control-btn quit" onclick="quitGame()">Quit</button>
+                <button class="control-btn quit" onclick="quitGame()">Quit It</button>
             </div>
         </div>
     </div>
@@ -1066,6 +1066,11 @@
             
             gameActive = true;
             const edges = buildGraph();
+            
+            // DEBUG: dump chain and letterPositions
+            console.log('CHAIN:', JSON.stringify(chain));
+            console.log('LETTER POSITIONS:', JSON.stringify(letterPositions));
+            console.log('LETTER COUNTS:', JSON.stringify(letterCounts));
             
             // TRACK GAME STARTED IN FIREBASE
             try {
