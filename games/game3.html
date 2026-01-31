@@ -272,7 +272,7 @@
             <div id="controls">
                 <button class="control-btn" onclick="nextPuzzle()">Next</button>
                 <button class="control-btn reveal" onclick="revealAll()">Reveal</button>
-                <button class="control-btn quit" onclick="quitGame()">Quit It</button>
+                <button class="control-btn quit" onclick="quitGame()">Quit</button>
             </div>
         </div>
     </div>
@@ -502,6 +502,8 @@
                 return;
             }
             
+            console.log('updateWordDisplay called for:', letter, 'positions:', JSON.stringify(positions));
+            
             // Update each position explicitly
             positions.forEach(pos => {
                 const wordIdx = pos.wordIdx;
@@ -509,11 +511,22 @@
                 
                 // Find the specific letter span
                 const allSpans = document.querySelectorAll('.word-letter');
+                let found = false;
                 allSpans.forEach(span => {
                     if (span.dataset.wordIdx == wordIdx && span.dataset.letterIdx == letterIdx) {
                         span.textContent = letter;
+                        found = true;
                     }
                 });
+                
+                if (!found) {
+                    console.warn('Could not find span for wordIdx:', wordIdx, 'letterIdx:', letterIdx);
+                    // Log all spans to see what exists
+                    console.log('All spans:');
+                    allSpans.forEach((span, i) => {
+                        console.log('  span[' + i + '] wordIdx=' + span.dataset.wordIdx + ' letterIdx=' + span.dataset.letterIdx + ' text=' + span.textContent);
+                    });
+                }
             });
         }
 
