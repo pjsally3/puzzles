@@ -306,6 +306,7 @@
         let selectedLetter = null;
         let selectedLetterElement = null;
         let touchGhost = null;
+        let globalGamesCompleted = 0;
         
         const difficultyChart = {
             '11,2,0,0': 1.9, '9,3,0,0': 1.95, '7,4,0,0': 1.98, '5,5,0,0': 2.0,
@@ -321,6 +322,9 @@
 
         async function loadWords() {
             try {
+                // Fetch global games completed
+                await fetchGlobalGamesCompleted();
+                
                 const response = await fetch('words5.txt');
                 const text = await response.text();
                 words = text.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5);
@@ -332,6 +336,30 @@
             } catch (error) {
                 document.getElementById('loading').textContent = 'Error loading words: ' + error.message;
             }
+        }
+        
+        async function fetchGlobalGamesCompleted() {
+            try {
+                const snapshot = await db.collection('wordchain_stats')
+                    .where('event', '==', 'game_won')
+                    .get();
+                globalGamesCompleted = snapshot.size;
+                updateGlobalStatsDisplay();
+            } catch (error) {
+                console.error('Error fetching global games completed:', error);
+            }
+        }
+        
+        function updateGlobalStatsDisplay() {
+            const statsDiv = document.getElementById('stats');
+            let globalSpan = document.getElementById('global-games');
+            if (!globalSpan) {
+                globalSpan = document.createElement('span');
+                globalSpan.id = 'global-games';
+                globalSpan.style.marginLeft = '30px';
+                statsDiv.appendChild(globalSpan);
+            }
+            globalSpan.innerHTML = '🏆 <span style="color: #4CAF50;">' + globalGamesCompleted.toLocaleString() + '</span> completed worldwide';
         }
 
         function findWordChain() {
@@ -916,6 +944,9 @@
                         event: 'game_won',
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    // Update global counter
+                    globalGamesCompleted++;
+                    updateGlobalStatsDisplay();
                 } catch (error) {
                     console.error('Error recording game won:', error);
                 }
