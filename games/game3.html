@@ -272,7 +272,7 @@
             <div id="controls">
                 <button class="control-btn" onclick="nextPuzzle()">Next</button>
                 <button class="control-btn reveal" onclick="revealAll()">Reveal</button>
-                <button class="control-btn quit" onclick="quitGame()">Quit It</button>
+                <button class="control-btn quit" onclick="quitGame()">Quit</button>
             </div>
         </div>
     </div>
@@ -402,7 +402,7 @@
             chain.forEach((word, wordIdx) => {
                 word.split('').forEach((letter, letterIdx) => {
                     letterCounts[letter] = (letterCounts[letter] || 0) + 1;
-                    if (!letterToNode[letter]) {
+                    if (letterToNode[letter] === undefined) {
                         letterToNode[letter] = nodeId++;
                         letterPositions[letter] = [];
                     }
@@ -497,36 +497,18 @@
 
         function updateWordDisplay(letter) {
             const positions = letterPositions[letter];
-            if (!positions || positions.length === 0) {
-                console.warn('No positions found for letter:', letter);
-                return;
-            }
+            if (!positions || positions.length === 0) return;
             
-            console.log('updateWordDisplay called for:', letter, 'positions:', JSON.stringify(positions));
-            
-            // Update each position explicitly
             positions.forEach(pos => {
                 const wordIdx = pos.wordIdx;
                 const letterIdx = pos.letterIdx;
                 
-                // Find the specific letter span
                 const allSpans = document.querySelectorAll('.word-letter');
-                let found = false;
                 allSpans.forEach(span => {
                     if (span.dataset.wordIdx == wordIdx && span.dataset.letterIdx == letterIdx) {
                         span.textContent = letter;
-                        found = true;
                     }
                 });
-                
-                if (!found) {
-                    console.warn('Could not find span for wordIdx:', wordIdx, 'letterIdx:', letterIdx);
-                    // Log all spans to see what exists
-                    console.log('All spans:');
-                    allSpans.forEach((span, i) => {
-                        console.log('  span[' + i + '] wordIdx=' + span.dataset.wordIdx + ' letterIdx=' + span.dataset.letterIdx + ' text=' + span.textContent);
-                    });
-                }
             });
         }
 
@@ -1066,11 +1048,6 @@
             
             gameActive = true;
             const edges = buildGraph();
-            
-            // DEBUG: dump chain and letterPositions
-            console.log('CHAIN:', JSON.stringify(chain));
-            console.log('LETTER POSITIONS:', JSON.stringify(letterPositions));
-            console.log('LETTER COUNTS:', JSON.stringify(letterCounts));
             
             // TRACK GAME STARTED IN FIREBASE
             try {
