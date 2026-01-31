@@ -237,126 +237,47 @@
       background: rgba(255,255,255,.05);
     }
   </style>
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-<script>
-  window.addEventListener('load', function() {
-    // Initialize Firebase (same config as your game)
-    const firebaseConfig = {
-      apiKey: "AIzaSyD4UVYiRmXS-byupCIJgD4BH2Dq4orkA7w",
-      authDomain: "pjpuzzles-4ee57.firebaseapp.com",
-      projectId: "pjpuzzles-4ee57",
-      storageBucket: "pjpuzzles-4ee57.firebasestorage.app",
-      messagingSenderId: "847724129290",
-      appId: "1:847724129290:web:e40a80245d1dae0a7103f3"
-    };
-    
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    
-    // Increment and display visit counter (once per session)
-    async function updateVisitCounter() {
-      console.log('Starting visit counter update...');
-      try {
-        // Check if we've already counted this session
-        const sessionCounted = sessionStorage.getItem('visitCounted');
-        
-        const counterRef = db.collection('counters').doc('websiteVisits');
-        console.log('Getting counter document...');
-        const doc = await counterRef.get();
-        console.log('Document exists:', doc.exists);
-        
-        let count = doc.exists ? doc.data().count : 0;
-        
-        // Only increment if not counted this session
-        if (!sessionCounted) {
-          count++;
-          await counterRef.set({ count: count });
-          sessionStorage.setItem('visitCounted', 'true');
-          console.log('Counter incremented to:', count);
-        } else {
-          console.log('Already counted this session, showing:', count);
-        }
-        
-        const element = document.getElementById('visit-count');
-        console.log('Element found:', !!element);
-        if (element) {
-          element.textContent = count.toLocaleString();
-          console.log('Display updated to:', count.toLocaleString());
-        }
-      } catch (error) {
-        console.error('Error updating visit counter:', error);
-        const element = document.getElementById('visit-count');
-        if (element) element.textContent = 'Error';
-      }
-    }
-    
-    // Fetch game statistics
-    async function updateGameStats() {
-      try {
-        // Grid Builder stats
-        const gridStats = {
-          started: { easy: 0, medium: 0, hard: 0, extreme: 0 },
-          completed: { easy: 0, medium: 0, hard: 0, extreme: 0 }
-        };
-        
-        const gridStarted = await db.collection('stats')
-          .where('event', '==', 'game_started')
-          .get();
-        
-        gridStarted.forEach(doc => {
-          const data = doc.data();
-          if (data.difficulty && gridStats.started[data.difficulty] !== undefined) {
-            gridStats.started[data.difficulty]++;
+  <!-- Firebase SDKs for silent visit tracking -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <script>
+    window.addEventListener('load', function() {
+      // Initialize Firebase
+      const firebaseConfig = {
+        apiKey: "AIzaSyD4UVYiRmXS-byupCIJgD4BH2Dq4orkA7w",
+        authDomain: "pjpuzzles-4ee57.firebaseapp.com",
+        projectId: "pjpuzzles-4ee57",
+        storageBucket: "pjpuzzles-4ee57.firebasestorage.app",
+        messagingSenderId: "847724129290",
+        appId: "1:847724129290:web:e40a80245d1dae0a7103f3"
+      };
+      
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+      
+      // Track visit (once per session, no display)
+      async function trackVisit() {
+        try {
+          const sessionCounted = sessionStorage.getItem('visitCounted');
+          
+          if (!sessionCounted) {
+            const counterRef = db.collection('counters').doc('websiteVisits');
+            const doc = await counterRef.get();
+            let count = doc.exists ? doc.data().count : 0;
+            count++;
+            await counterRef.set({ count: count });
+            sessionStorage.setItem('visitCounted', 'true');
+            console.log('Visit tracked:', count);
           }
-        });
-        
-        const gridCompleted = await db.collection('stats')
-          .where('event', '==', 'game_won')
-          .get();
-        
-        gridCompleted.forEach(doc => {
-          const data = doc.data();
-          if (data.difficulty && gridStats.completed[data.difficulty] !== undefined) {
-            gridStats.completed[data.difficulty]++;
-          }
-        });
-        
-        // Display Grid Builder stats
-        document.getElementById('grid-started-easy').textContent = gridStats.started.easy;
-        document.getElementById('grid-started-medium').textContent = gridStats.started.medium;
-        document.getElementById('grid-started-hard').textContent = gridStats.started.hard;
-        document.getElementById('grid-started-extreme').textContent = gridStats.started.extreme;
-        
-        document.getElementById('grid-completed-easy').textContent = gridStats.completed.easy;
-        document.getElementById('grid-completed-medium').textContent = gridStats.completed.medium;
-        document.getElementById('grid-completed-hard').textContent = gridStats.completed.hard;
-        document.getElementById('grid-completed-extreme').textContent = gridStats.completed.extreme;
-        
-        // Word Chain stats (placeholder - you'll need to add tracking to Word Chain game)
-        const wordChainStarted = await db.collection('wordchain_stats')
-          .where('event', '==', 'game_started')
-          .get();
-        
-        const wordChainCompleted = await db.collection('wordchain_stats')
-          .where('event', '==', 'game_won')
-          .get();
-        
-        document.getElementById('wordchain-started').textContent = wordChainStarted.size;
-        document.getElementById('wordchain-completed').textContent = wordChainCompleted.size;
-        
-      } catch (error) {
-        console.error('Error fetching game stats:', error);
+        } catch (error) {
+          console.error('Error tracking visit:', error);
+        }
       }
-    }
-    
-    // Run when Firebase is loaded
-    updateVisitCounter();
-    updateGameStats();
-  });
-</script>
+      
+      trackVisit();
+    });
+  </script>
 </head>
 <body>
   <div class="wrap">
@@ -450,94 +371,6 @@
         </svg>
       </div>
     </section>
-
-    <!-- Visit Counter -->
-    <div style="
-      text-align: center; 
-      padding: 18px; 
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: var(--radius2);
-      margin-top: 18px;
-      box-shadow: 0 10px 22px rgba(0,0,0,.22);
-    ">
-      <div style="color: var(--muted); font-size: 13px; margin-bottom: 8px; letter-spacing: 0.5px;">
-        TOTAL WEBSITE VISITS
-      </div>
-      <div style="font-size: 42px; font-weight: bold; background: linear-gradient(145deg, rgba(120,170,255,.9), rgba(255,190,120,.75)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-        <span id="visit-count">...</span>
-      </div>
-    </div>
-
-    <!-- Game Statistics -->
-    <div style="
-      padding: 20px; 
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: var(--radius2);
-      margin-top: 18px;
-      box-shadow: 0 10px 22px rgba(0,0,0,.22);
-    ">
-      <div style="color: var(--muted); font-size: 13px; margin-bottom: 15px; letter-spacing: 0.5px; text-align: center;">
-        GAME STATISTICS
-      </div>
-      
-      <!-- Grid Builder Stats -->
-      <div style="margin-bottom: 20px;">
-        <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: var(--ink);">
-          Color Tiles (Grid Builder)
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 13px;">
-          <div style="background: rgba(255,255,255,.04); padding: 10px; border-radius: 8px;">
-            <div style="color: var(--muted); margin-bottom: 5px;">Games Started</div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-              <span style="color: #4CAF50;">Easy:</span> <span id="grid-started-easy">...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-              <span style="color: #FF9800;">Medium:</span> <span id="grid-started-medium">...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-              <span style="color: #FF5722;">Hard:</span> <span id="grid-started-hard">...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #9C27B0;">Extreme:</span> <span id="grid-started-extreme">...</span>
-            </div>
-          </div>
-          <div style="background: rgba(255,255,255,.04); padding: 10px; border-radius: 8px;">
-            <div style="color: var(--muted); margin-bottom: 5px;">Games Completed</div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-              <span style="color: #4CAF50;">Easy:</span> <span id="grid-completed-easy">...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-              <span style="color: #FF9800;">Medium:</span> <span id="grid-completed-medium">...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-              <span style="color: #FF5722;">Hard:</span> <span id="grid-completed-hard">...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #9C27B0;">Extreme:</span> <span id="grid-completed-extreme">...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Word Chain Stats -->
-      <div>
-        <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: var(--ink);">
-          Word Chain
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 13px;">
-          <div style="background: rgba(255,255,255,.04); padding: 10px; border-radius: 8px; text-align: center;">
-            <div style="color: var(--muted); margin-bottom: 5px;">Games Started</div>
-            <div style="font-size: 24px; font-weight: bold;"><span id="wordchain-started">...</span></div>
-          </div>
-          <div style="background: rgba(255,255,255,.04); padding: 10px; border-radius: 8px; text-align: center;">
-            <div style="color: var(--muted); margin-bottom: 5px;">Games Completed</div>
-            <div style="font-size: 24px; font-weight: bold;"><span id="wordchain-completed">...</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div class="footer">
       <span>Tip: On iPad, tap Share → "Add to Home Screen" for an app-like experience.</span>
